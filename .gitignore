@@ -31,15 +31,16 @@ Thumbs.db
 # ── Medical imaging data: NEVER commit ──────────────────────
 # Keep datasets OUTSIDE the repository when possible. If you must keep them
 # inside the project folder, put them under data/ or datasets/.
-data/
-datasets/
-public/sample/
-dicom/
-DICOM/
-TCIA/
-RIDER*/
-LIDC*/
-manifest-*/
+# Folder patterns are anchored to the repo root (leading "/") so they never
+# match source folders such as src/dicom/ (macOS paths are case-insensitive).
+/data/
+/datasets/
+/public/sample/
+/dicom-data/
+/TCIA/
+/RIDER*/
+/LIDC*/
+/manifest-*/
 *.dcm
 *.DCM
 *.dicom
