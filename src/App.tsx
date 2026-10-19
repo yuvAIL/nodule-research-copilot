@@ -1,5 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { CtViewport, type CtViewportHandle, type LeftMouseTool, type ViewerState } from './components/CtViewport';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  CUSTOM_LEFT_TOOLS,
+  CtViewport,
+  type CtViewportHandle,
+  type LeftMouseTool,
+  type ViewPointerEvent,
+  type ViewerState,
+} from './components/CtViewport';
+import { drawAnnotations, type ViewMapper } from './components/annotationRenderer';
+import { FindingsPanel, type VolumeStatus } from './components/FindingsPanel';
+import { BRUSH_SIZES_MM } from './components/Toolbar';
+import { buildVolume } from './cornerstone/volumeData';
+import { FindingsStore, type StoreSnapshot } from './findings/store';
+import type { Finding } from './findings/types';
 import { FileLoader, type ResumeOffer } from './components/FileLoader';
 import { MetadataPanel } from './components/MetadataPanel';
 import { Toolbar } from './components/Toolbar';
@@ -29,6 +42,15 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const EMPTY_SNAPSHOT: StoreSnapshot = { findings: [], version: 0 };
+const noopSubscribe = () => () => {};
+const emptySnapshot = () => EMPTY_SNAPSHOT;
+
+function isTyping(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+}
+
 function describeSession(session: LastSession): string {
   const parts: string[] = [];
   if (session.seriesLabel) parts.push(session.seriesLabel);
@@ -52,8 +74,198 @@ export default function App() {
   /** Slice to restore once the restored series has rendered. */
   const pendingSlice = useRef<{ seriesInstanceUid: string; index: number } | undefined>(undefined);
 
+  // ── measurement state ─────────────────────────────────────────
+  const [store, setStore] = useState<FindingsStore>();
+  const [volumeStatus, setVolumeStatus] = useState<VolumeStatus>({ kind: 'none' });
+  const [brushRadiusMm, setBrushRadiusMm] = useState(3);
+  const [brush3d, setBrush3d] = useState(true);
+  const [notice, setNotice] = useState<string>();
+  const brushCursor = useRef<{ x: number; y: number } | undefined>(undefined);
+  const lastPaint = useRef<{ i: number; j: number; k: number } | undefined>(undefined);
+  const snap = useSyncExternalStore(store?.subscribe ?? noopSubscribe, store?.getSnapshot ?? emptySnapshot);
+  const selectedFinding = snap.findings.find((f) => f.id === snap.selectedId);
+
   const series = allSeries.find((s) => s.seriesInstanceUid === selectedUid);
   const current = series?.instances[viewer.index];
+
+  const buildAbort = useRef<AbortController | undefined>(undefined);
+
+  // A new series invalidates the 3D volume and its findings.
+  useEffect(() => {
+    buildAbort.current?.abort();
+    setStore(undefined);
+    setVolumeStatus({ kind: 'none' });
+  }, [selectedUid, allSeries]);
+
+  useEffect(() => () => store?.dispose(), [store]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = window.setTimeout(() => setNotice(undefined), 4500);
+    return () => window.clearTimeout(t);
+  }, [notice]);
+
+  /** Once the stack is displayed, decode all slices into a 3D volume in the background. */
+  const seriesRef = useRef(series);
+  useEffect(() => {
+    seriesRef.current = series;
+  });
+  const onStackReady = useCallback((imageIds: string[]) => {
+    const target = seriesRef.current;
+    if (!target) return;
+    buildAbort.current?.abort();
+    const controller = new AbortController();
+    buildAbort.current = controller;
+    setVolumeStatus({ kind: 'loading', done: 0, total: imageIds.length });
+    let lastUpdate = 0;
+    buildVolume(
+      target,
+      imageIds,
+      (done, total) => {
+        const now = performance.now();
+        if (done === total || now - lastUpdate > 120) {
+          lastUpdate = now;
+          setVolumeStatus({ kind: 'loading', done, total });
+        }
+      },
+      controller.signal,
+    )
+      .then(async (volume) => {
+        if (controller.signal.aborted || seriesRef.current !== target) return;
+        const next = new FindingsStore(volume, target.seriesInstanceUid);
+        const restored = await next.restore();
+        if (controller.signal.aborted || seriesRef.current !== target) {
+          next.dispose();
+          return;
+        }
+        setStore(next);
+        setVolumeStatus({ kind: 'ready', restored });
+      })
+      .catch((e: unknown) => {
+        if (controller.signal.aborted) return;
+        setVolumeStatus({ kind: 'error', message: `3D measurement data unavailable: ${errorText(e)}` });
+      });
+  }, []);
+
+  const goToFinding = useCallback((f: Finding) => {
+    if (f.measurement) viewerRef.current?.goToSlice(f.measurement.sliceIndex);
+  }, []);
+
+  const draw = useCallback(
+    (ctx: CanvasRenderingContext2D, view: ViewMapper) => {
+      if (!store) return;
+      const brushing = leftTool === 'brush' || leftTool === 'erase';
+      const cursor = brushCursor.current;
+      drawAnnotations(ctx, view, {
+        labelmap: store.labelmap,
+        findings: snap.findings,
+        selectedId: snap.selectedId,
+        brush: brushing && cursor ? { ...cursor, radiusMm: brushRadiusMm, erase: leftTool === 'erase' } : undefined,
+      });
+    },
+    [store, snap, leftTool, brushRadiusMm],
+  );
+
+  const onPointer = useCallback(
+    (e: ViewPointerEvent) => {
+      const brushing = leftTool === 'brush' || leftTool === 'erase';
+      if (e.kind === 'hover' || e.kind === 'leave' || brushing) {
+        brushCursor.current = e.kind === 'leave' ? undefined : { x: e.canvas[0], y: e.canvas[1] };
+        if (brushing) viewerRef.current?.redrawAnnotations();
+      }
+      if (e.kind === 'hover' || e.kind === 'leave') return;
+      if (!store) {
+        if (e.kind === 'down') {
+          setNotice(
+            volumeStatus.kind === 'error' ? volumeStatus.message : 'Preparing 3D measurement data — try again in a moment.',
+          );
+        }
+        return;
+      }
+      const v = e.voxel;
+      if (leftTool === 'segment') {
+        if (e.kind !== 'down') return;
+        const result = store.clickSegment(v, {});
+        if (!result.ok) setNotice(result.reason);
+        return;
+      }
+      if (!brushing) return;
+      const erase = leftTool === 'erase';
+      if (e.kind === 'down') {
+        const id = store.beginStroke(snap.selectedId, erase);
+        if (!id) {
+          setNotice('Select a finding first (click it in the list), then erase.');
+          return;
+        }
+        lastPaint.current = v;
+        store.paint(v.k, v.i, v.j, brushRadiusMm, erase, brush3d);
+      } else if (e.kind === 'drag') {
+        const last = lastPaint.current;
+        if (!last) return;
+        // Interpolate so fast strokes stay continuous.
+        const dx = (v.i - last.i) * store.volume.colSpacing;
+        const dy = (v.j - last.j) * store.volume.rowSpacing;
+        const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / Math.max(0.5, brushRadiusMm / 2)));
+        for (let s2 = 1; s2 <= steps; s2++) {
+          const t = s2 / steps;
+          store.paint(v.k, last.i + (v.i - last.i) * t, last.j + (v.j - last.j) * t, brushRadiusMm, erase, brush3d);
+        }
+        lastPaint.current = v;
+      } else if (e.kind === 'up') {
+        if (lastPaint.current) store.endStroke();
+        lastPaint.current = undefined;
+      }
+    },
+    [store, leftTool, snap.selectedId, brushRadiusMm, brush3d, volumeStatus],
+  );
+
+  // Keyboard shortcuts (ignored while typing in a field).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (isTyping(e.target) || e.altKey) return;
+      const mod = e.metaKey || e.ctrlKey;
+      const id = snap.selectedId;
+      if (mod && e.key.toLowerCase() === 'z') {
+        if (store && id) {
+          e.preventDefault();
+          store.undoLast(id);
+        }
+        return;
+      }
+      if (mod) return;
+      const tools: Record<string, LeftMouseTool> = { s: 'segment', b: 'brush', e: 'erase', w: 'windowLevel', p: 'pan', z: 'zoom' };
+      const key = e.key.toLowerCase();
+      if (tools[key] && series) {
+        setLeftTool(tools[key]);
+        return;
+      }
+      if (key === '[' || key === ']') {
+        const idx = BRUSH_SIZES_MM.indexOf(brushRadiusMm);
+        const next = BRUSH_SIZES_MM[Math.max(0, Math.min(BRUSH_SIZES_MM.length - 1, idx + (key === ']' ? 1 : -1)))];
+        if (next) setBrushRadiusMm(next);
+        return;
+      }
+      if (!store) return;
+      if (key === 'a' && id) store.approve(id);
+      else if (key === 'r' && id) store.reject(id);
+      else if (key === 'n') {
+        // Next finding still to review (wraps around).
+        const list = snap.findings;
+        if (list.length === 0) return;
+        const start = list.findIndex((f) => f.id === id);
+        for (let step = 1; step <= list.length; step++) {
+          const f = list[(start + step) % list.length] as Finding;
+          if (f.status === 'unreviewed' || step === list.length) {
+            store.select(f.id);
+            goToFinding(f);
+            break;
+          }
+        }
+      } else if (key === 'escape') store.select(undefined);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [store, snap, series, brushRadiusMm, goToFinding]);
 
   // On start-up: offer to continue the previous session, and check whether a sample CT is deployed.
   useEffect(() => {
@@ -225,6 +437,12 @@ export default function App() {
         {viewer.zoom !== undefined && <div>Zoom {Math.round(viewer.zoom * 100)}%</div>}
       </div>
       <div className="overlay overlay--bl">Research use only — not for diagnosis</div>
+      <div className="overlay overlay--br">Wheel/↑↓ slice · middle-drag pan · right-drag zoom</div>
+      {notice && (
+        <div className="viewport-notice" role="status">
+          {notice}
+        </div>
+      )}
     </>
   );
 
@@ -329,9 +547,14 @@ export default function App() {
       <main className="main">
         <Toolbar
           disabled={!series}
+          measureDisabled={volumeStatus.kind === 'error'}
           leftTool={leftTool}
           voi={viewer.voi}
+          brushRadiusMm={brushRadiusMm}
+          brush3d={brush3d}
           onLeftTool={setLeftTool}
+          onBrushRadius={setBrushRadiusMm}
+          onBrush3d={setBrush3d}
           onPreset={(w, c) => viewerRef.current?.setWindow(w, c)}
           onReset={() => viewerRef.current?.resetView()}
         />
@@ -343,6 +566,10 @@ export default function App() {
           onStateChange={setViewer}
           onError={setError}
           overlay={overlay}
+          onStackReady={onStackReady}
+          drawAnnotations={draw}
+          annotationVersion={snap.version}
+          onPointer={CUSTOM_LEFT_TOOLS.has(leftTool) ? onPointer : undefined}
         />
         <div className="slice-bar">
           <input
@@ -357,6 +584,26 @@ export default function App() {
           <span className="slice-bar-label">{series ? `${viewer.index + 1} / ${viewer.total}` : '–'}</span>
         </div>
       </main>
+
+      <FindingsPanel
+        volume={series ? volumeStatus : { kind: 'none' }}
+        findings={snap.findings}
+        selected={selectedFinding}
+        canUndo={!!store && store.canUndo(snap.selectedId)}
+        onSelect={(id) => store?.select(id)}
+        onGoTo={goToFinding}
+        onApprove={(id) => store?.approve(id)}
+        onReject={(id) => store?.reject(id)}
+        onReopen={(id) => store?.reopen(id)}
+        onUndo={(id) => store?.undoLast(id)}
+        onReset={(id) => store?.resetEdits(id)}
+        onDelete={(id) => store?.remove(id)}
+        onResegment={(id, thresholdHu) => {
+          const r = store?.resegment(id, { thresholdHu });
+          if (r && !r.ok) setNotice(r.reason);
+        }}
+        onFields={(id, patch) => store?.setFields(id, patch)}
+      />
     </div>
   );
 }

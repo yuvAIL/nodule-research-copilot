@@ -2,6 +2,35 @@
 
 Deadline: **Thu 22 Oct 2026, 18:00 (IL)**. Full brief: `docs/MISSION.md`.
 
+## M1 — Measure & edit (Mon 19 Oct, 21:15) ✅
+
+**BUILT**
+- Click segmentation (`src/measure/segment.ts`, classical, not AI): threshold (−400 HU default, adjustable per finding),
+  per-slice lung-region constraint (convex hull of lungs → excludes chest wall), adaptive morphological opening
+  (0–6 voxels, first setting that does not leak), slice-wise hole filling, 60 mm search radius, leak warning.
+- Measurements (`src/measure/measure.ts`): RECIST-style long axis on the slice where largest, perpendicular short axis,
+  volume = voxels × voxel volume; edge-to-edge convention documented in code.
+- Findings store: shared labelmap, provenance (click / manual / edited), status (to review / approved / rejected),
+  per-stroke undo, reset, re-segment with new threshold, timeline timestamps (for M5 time analysis),
+  saved per series in IndexedDB (outline RLE + findings) and restored on reopen.
+- UI: Measure toolbar (Click nodule S, Brush B, Erase E, brush size, 3D sphere brush), outlines + axes + mm labels drawn
+  over the CT following zoom/pan, right "Findings" panel with metrics, provenance, Approve (A) / Reject (R) / Undo (⌘Z) /
+  Reset, threshold slider, Type / Lobe / Notes; N = next unreviewed finding.
+
+**VERIFIED**
+- Unit tests (phantoms): ellipse 20×12 mm and rotated anisotropic ellipse within 1 px; sphere volume within 0.3 %;
+  vessel cut; cavity filled; chest-wall-touching tumour stays out of the wall; store click/edit/undo/re-segment/manual.
+  (Run here with a Node test shim; `npm run check` on the Mac still to run.)
+- Real `tsc` + ESLint on the Mac: pass.
+- In the app on RIDER-1129164940 (Claude, desktop-app browser): click on the right posterior mass → N1 outlined & measured
+  in < 1 s; 3D data prepared in ~1 s after load; erase stroke → volume 31 495 → 31 170 mm³, provenance "edited by researcher";
+  ⌘Z → back to 31 495; A → Approved; reload → finding restored.
+
+**KNOWN LIMITATION (honest)**
+- On this tumour the click outline (58.5 × 36.6 mm, 31.5 mL) extends along hilar structures on some slices. The lung
+  constraint removed the chest wall (89 mL → 36 mL) and opening removed the rest of the leak warning, but the hilar strip
+  still needs manual erasing. Quantify against RIDER-LungCT-Seg expert outlines in M5 before claiming accuracy.
+
 ## Status (Mon 19 Oct, evening)
 
 **BUILT**
