@@ -2,6 +2,26 @@
 
 Deadline: **Thu 22 Oct 2026, 18:00 (IL)**. Full brief: `docs/MISSION.md`.
 
+## M2 — Documentation that writes itself (Mon 19 Oct, 21:45) ✅
+
+**BUILT** — Research record panel (Patient ID, date, series read from DICOM; timepoint selector saved per series);
+CSV export in Daniel's 13 columns + provenance/follow-up columns (UTF-8 BOM, CRLF, RFC 4180 quoting → opens in Excel);
+missing Type/Lobe highlighted; JPEG snapshot of the measured slice saved with the finding at approval; full-resolution
+PNG screenshot per finding named Patient_Timepoint_Nodule.png; minutes per nodule from app timestamps.
+**VERIFIED** — record unit tests (column order, quoting round-trip, minutes); in the app: Patient ID/date/series filled,
+Type/Lobe/Notes saved, snapshot captured on approval (21 KB), exported CSV content checked (BOM bytes EF BB BF present).
+
+## M3 — Follow-up comparison (Mon 19 Oct, 22:00) ✅ (spreadsheet path) / ⏳ (two-scan path)
+
+**BUILT** — Earlier measurements per patient from (a) scans measured in this app (approved findings saved per series with
+thumbnail + patient-coordinate centre) and (b) CSV import of the lab sheet (loose header matching). Finding card shows
+earlier vs now images, long/short/volume with Δ mm and Δ %, earlier notes; "Same nodule — Confident / Uncertain";
+confirmed match adopts the earlier Nodule ID; closest-position suggestion (labelled as a hint, not registration);
+"go to earlier position (approx.)"; CSV gets Match status + prior/Δ columns. Saves flush when the tab is hidden/closed.
+**VERIFIED** — priors unit tests; in the app with a hand-written TEST sheet row: import → Δ +6.5 mm (+12.6 %) / +14.5 %
+volume shown; Confident → finding renamed N1, CSV has Match status + prior + Δ columns. Test data deleted afterwards.
+**BLOCKED** — two-scan follow-up needs the second same-day RIDER series (requested from Yuval).
+
 ## M1 — Measure & edit (Mon 19 Oct, 21:15) ✅
 
 **BUILT**

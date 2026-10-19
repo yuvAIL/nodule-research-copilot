@@ -54,6 +54,10 @@ export interface CtViewportHandle {
   resetView(): void;
   /** Redraws the annotation layer (e.g. after a brush-cursor move). */
   redrawAnnotations(): void;
+  /** Image of the current view (CT + annotations) as a data URL, optionally downscaled. */
+  capture(options?: { maxWidth?: number; type?: 'image/png' | 'image/jpeg'; quality?: number }): string | undefined;
+  /** Current slice index. */
+  currentSlice(): number;
 }
 
 interface Props {
@@ -408,8 +412,38 @@ export function CtViewport({
         publishState();
       },
       redrawAnnotations: scheduleDraw,
+      capture(options = {}) {
+        const element = elementRef.current;
+        const ct = element?.querySelector<HTMLCanvasElement>('canvas.cornerstone-canvas');
+        const annotations = canvasRef.current;
+        if (!element || !ct || ct.width === 0) return undefined;
+        drawNow(); // make sure annotations match the displayed slice
+        const scale = options.maxWidth ? Math.min(1, options.maxWidth / ct.width) : 1;
+        const out = document.createElement('canvas');
+        out.width = Math.round(ct.width * scale);
+        out.height = Math.round(ct.height * scale);
+        const ctx = out.getContext('2d');
+        if (!ctx) return undefined;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, out.width, out.height);
+        ctx.drawImage(ct, 0, 0, out.width, out.height);
+        if (annotations && annotations.width > 0) {
+          // Both canvases cover the element box; map the annotation layer onto the CT canvas box.
+          const sx = element.clientWidth / Math.max(1, ct.clientWidth || element.clientWidth);
+          const sy = element.clientHeight / Math.max(1, ct.clientHeight || element.clientHeight);
+          ctx.drawImage(annotations, 0, 0, annotations.width / sx, annotations.height / sy, 0, 0, out.width, out.height);
+        }
+        try {
+          return out.toDataURL(options.type ?? 'image/png', options.quality);
+        } catch {
+          return undefined;
+        }
+      },
+      currentSlice() {
+        return getStackViewport(engineRef.current)?.getCurrentImageIdIndex() ?? 0;
+      },
     }),
-    [goToSlice, publishState, scheduleDraw],
+    [goToSlice, publishState, scheduleDraw, drawNow],
   );
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

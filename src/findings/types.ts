@@ -1,4 +1,5 @@
 import type { Measurement } from '../measure/measure';
+import type { FindingMatch } from './priors';
 
 export type FindingStatus = 'unreviewed' | 'approved' | 'rejected';
 
@@ -19,6 +20,7 @@ export interface TimelineEvent {
     | 'approved'
     | 'rejected'
     | 'reopened'
+    | 'matched'
     | 'fields';
 }
 
@@ -43,6 +45,10 @@ export interface Finding {
   type: NoduleType;
   lobe: Lobe;
   notes: string;
+  /** Small JPEG of the measured slice with the outline, captured at approval. */
+  thumbnail?: string;
+  /** Researcher-confirmed link to the same nodule on an earlier scan. */
+  match?: FindingMatch;
   timeline: TimelineEvent[];
 }
 

@@ -1,7 +1,8 @@
 /**
  * Framework-independent description of one DICOM instance, extracted from its
- * header. Only non-identifying, scan-related attributes are kept: patient name,
- * birth date, etc. are deliberately never read into application state.
+ * header. Scan-related attributes only; patient name, birth date etc. are
+ * deliberately never read. PatientID is read because it is the key of the
+ * lab's research spreadsheet (public data here is already de-identified).
  */
 export interface DicomHeader {
   /** The local File the header came from. Kept so it can be handed to the image loader. */
@@ -13,6 +14,8 @@ export interface DicomHeader {
   seriesInstanceUid: string;
   studyInstanceUid: string;
   modality: string;
+  /** (0010,0020) — research spreadsheet key. */
+  patientId?: string;
   transferSyntaxUid?: string;
 
   instanceNumber?: number;

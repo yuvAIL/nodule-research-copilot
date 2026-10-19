@@ -13,6 +13,11 @@ import { BRUSH_SIZES_MM } from './components/Toolbar';
 import { buildVolume } from './cornerstone/volumeData';
 import { FindingsStore, type StoreSnapshot } from './findings/store';
 import type { Finding } from './findings/types';
+import { downloadDataUrl, downloadText, screenshotName, toCsv, toRow, type ScanInfo } from './findings/record';
+import { formatDicomDate } from './dicom/headerMapping';
+import { idbGet, idbSet } from './session/idb';
+import { importSpreadsheet, suggestMatch, type PriorRecord } from './findings/priors';
+import { nearestSlice, voxelToWorld, type Vec3 } from './measure/volume';
 import { FileLoader, type ResumeOffer } from './components/FileLoader';
 import { MetadataPanel } from './components/MetadataPanel';
 import { Toolbar } from './components/Toolbar';
@@ -84,11 +89,174 @@ export default function App() {
   const lastPaint = useRef<{ i: number; j: number; k: number } | undefined>(undefined);
   const snap = useSyncExternalStore(store?.subscribe ?? noopSubscribe, store?.getSnapshot ?? emptySnapshot);
   const selectedFinding = snap.findings.find((f) => f.id === snap.selectedId);
+  const [timepoints, setTimepoints] = useState<Record<string, string>>({});
+  const [priors, setPriors] = useState<PriorRecord[]>([]);
+  const [priorsVersion, setPriorsVersion] = useState(0);
 
   const series = allSeries.find((s) => s.seriesInstanceUid === selectedUid);
   const current = series?.instances[viewer.index];
 
   const buildAbort = useRef<AbortController | undefined>(undefined);
+
+  // ── research record ───────────────────────────────────────────
+  const firstHeader = series?.instances[0];
+  const scanInfo: ScanInfo | undefined = series
+    ? {
+        patientId: firstHeader?.patientId ?? '',
+        studyDate: formatDicomDate(firstHeader?.studyDate) ?? '',
+        timepoint: timepoints[series.seriesInstanceUid] ?? 'Baseline',
+        series: [firstHeader?.seriesNumber, firstHeader?.seriesDescription].filter((v) => v !== undefined && v !== '').join(' — '),
+      }
+    : undefined;
+
+  // Remember the timepoint chosen for each series.
+  useEffect(() => {
+    const uid = series?.seriesInstanceUid;
+    if (!uid || timepoints[uid]) return;
+    void idbGet<string>(`timepoint:${uid}`).then((tp) => {
+      if (tp) setTimepoints((prev) => ({ ...prev, [uid]: tp }));
+    });
+  }, [series, timepoints]);
+
+  const setTimepoint = (tp: string) => {
+    const uid = series?.seriesInstanceUid;
+    if (!uid) return;
+    setTimepoints((prev) => ({ ...prev, [uid]: tp }));
+    void idbSet(`timepoint:${uid}`, tp);
+  };
+
+  const exportCsv = () => {
+    if (!scanInfo) return;
+    const rows = snap.findings.filter((f) => f.status === 'approved').map((f) => toRow(scanInfo, f));
+    const name = `${scanInfo.patientId || 'scan'}_${scanInfo.timepoint}_${new Date().toISOString().slice(0, 10)}.csv`.replace(/\s+/g, '-');
+    downloadText(name, toCsv(rows));
+  };
+
+  // ── follow-up: earlier measurements of this patient ───────────
+  const patientId = scanInfo?.patientId ?? '';
+  const seriesUid = series?.seriesInstanceUid;
+
+  const centroidWorld = (f: Finding): Vec3 | undefined => {
+    const c = f.measurement?.centroid;
+    return c && store ? voxelToWorld(store.volume, c.i, c.j, c.k) : undefined;
+  };
+
+  // Save a summary of approved findings so later scans of the same patient can compare against them.
+  useEffect(() => {
+    if (!store || !scanInfo || !seriesUid || !patientId) return;
+    const timer = window.setTimeout(() => {
+      const records: PriorRecord[] = snap.findings
+        .filter((f) => f.status === 'approved' && f.approved)
+        .map((f) => {
+          const m = f.approved?.measurement;
+          const c = m?.centroid;
+          return {
+            key: `app:${seriesUid}:${f.id}`,
+            source: 'app',
+            patientId,
+            timepoint: scanInfo.timepoint,
+            date: scanInfo.studyDate,
+            series: scanInfo.series,
+            seriesUid,
+            noduleId: f.name,
+            longMm: m?.longMm,
+            shortMm: m?.shortMm,
+            volumeMm3: m?.volumeMm3,
+            type: f.type,
+            lobe: f.lobe,
+            notes: f.notes,
+            thumbnail: f.thumbnail,
+            centroidWorld: c ? voxelToWorld(store.volume, c.i, c.j, c.k) : undefined,
+          };
+        });
+      void idbSet(`summary:${seriesUid}`, records);
+      void idbGet<string[]>(`patientSeries:${patientId}`).then((list) => {
+        if (!list?.includes(seriesUid)) void idbSet(`patientSeries:${patientId}`, [...(list ?? []), seriesUid]);
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [store, snap, scanInfo?.timepoint, scanInfo?.studyDate, scanInfo?.series, seriesUid, patientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load earlier measurements: other scans of this patient measured here + imported spreadsheet rows.
+  useEffect(() => {
+    if (!patientId) {
+      setPriors([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const uids = (await idbGet<string[]>(`patientSeries:${patientId}`)) ?? [];
+      const fromApp: PriorRecord[] = [];
+      for (const uid of uids) {
+        if (uid === seriesUid) continue;
+        fromApp.push(...((await idbGet<PriorRecord[]>(`summary:${uid}`)) ?? []));
+      }
+      const fromSheet = (await idbGet<PriorRecord[]>(`imported:${patientId}`)) ?? [];
+      if (!cancelled) setPriors([...fromApp, ...fromSheet]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId, seriesUid, priorsVersion]);
+
+  const importSheet = async (file: File) => {
+    try {
+      const result = importSpreadsheet(await file.text(), file.name);
+      const byPatient = new Map<string, PriorRecord[]>();
+      for (const r of result.records) byPatient.set(r.patientId, [...(byPatient.get(r.patientId) ?? []), r]);
+      for (const [pid, recs] of byPatient) {
+        const existing = (await idbGet<PriorRecord[]>(`imported:${pid}`)) ?? [];
+        const keys = new Set(recs.map((r) => r.key));
+        await idbSet(`imported:${pid}`, [...existing.filter((r) => !keys.has(r.key)), ...recs]);
+      }
+      setPriorsVersion((v) => v + 1);
+      const mine = byPatient.get(patientId)?.length ?? 0;
+      const missing = (['patientId', 'long'] as const).filter((f) => !result.mapped[f]);
+      setNotice(
+        missing.length
+          ? `Imported, but could not find column(s): ${missing.join(', ')}. Check the header row.`
+          : `Imported ${result.records.length} row(s) from ${file.name} — ${mine} for ${patientId || 'this patient'}.`,
+      );
+    } catch (e) {
+      setNotice(`Could not read ${file.name}: ${errorText(e)}`);
+    }
+  };
+
+  const suggestion = selectedFinding ? suggestMatch(priors, centroidWorld(selectedFinding)) : undefined;
+
+  /** Shows the finding's measured slice, then calls back once it has rendered. */
+  const withFindingSlice = (f: Finding, then: () => void) => {
+    const k = f.measurement?.sliceIndex;
+    if (k === undefined) return;
+    if (viewerRef.current?.currentSlice() === k) {
+      then();
+      return;
+    }
+    viewerRef.current?.goToSlice(k);
+    window.setTimeout(then, 400);
+  };
+
+  const approve = (id: string) => {
+    if (!store) return;
+    const f = store.get(id);
+    if (!f?.measurement) return;
+    store.approve(id);
+    // Keep a small picture of the measured slice for the record and later follow-up comparison.
+    withFindingSlice(f, () => {
+      const thumb = viewerRef.current?.capture({ maxWidth: 360, type: 'image/jpeg', quality: 0.8 });
+      if (thumb) store.setThumbnail(id, thumb);
+    });
+  };
+
+  const saveScreenshot = (id: string) => {
+    const f = store?.get(id);
+    if (!f || !scanInfo) return;
+    withFindingSlice(f, () => {
+      const png = viewerRef.current?.capture({ type: 'image/png' });
+      if (png) downloadDataUrl(screenshotName(scanInfo, f), png);
+      else setNotice('Could not capture the image.');
+    });
+  };
 
   // A new series invalidates the 3D volume and its findings.
   useEffect(() => {
@@ -97,7 +265,19 @@ export default function App() {
     setVolumeStatus({ kind: 'none' });
   }, [selectedUid, allSeries]);
 
-  useEffect(() => () => store?.dispose(), [store]);
+  useEffect(() => {
+    if (!store) return;
+    // Don't lose the last edit if the tab is hidden or closed right after it.
+    const flush = () => store.flush();
+    const onVisibility = () => document.visibilityState === 'hidden' && flush();
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+      store.dispose();
+    };
+  }, [store]);
 
   useEffect(() => {
     if (!notice) return;
@@ -219,6 +399,11 @@ export default function App() {
     [store, leftTool, snap.selectedId, brushRadiusMm, brush3d, volumeStatus],
   );
 
+  const approveRef = useRef(approve);
+  useEffect(() => {
+    approveRef.current = approve;
+  });
+
   // Keyboard shortcuts (ignored while typing in a field).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -246,7 +431,7 @@ export default function App() {
         return;
       }
       if (!store) return;
-      if (key === 'a' && id) store.approve(id);
+      if (key === 'a' && id) approveRef.current(id);
       else if (key === 'r' && id) store.reject(id);
       else if (key === 'n') {
         // Next finding still to review (wraps around).
@@ -361,6 +546,27 @@ export default function App() {
     },
     [loadFiles],
   );
+
+  // After a reload, reopen the previous scan automatically when no click is needed:
+  // the public sample always; a local folder only if the browser still grants read access
+  // (otherwise the "Continue" card stays and one click on Reopen is required).
+  const autoResumed = useRef(false);
+  useEffect(() => {
+    if (autoResumed.current || !lastSession || series) return;
+    autoResumed.current = true;
+    const session = lastSession;
+    const src = session.source;
+    if (src.kind === 'sample') {
+      void loadSample(session);
+    } else if (src.kind === 'folder' && src.handle.queryPermission) {
+      void src.handle
+        .queryPermission({ mode: 'read' })
+        .then((state) => {
+          if (state === 'granted') void openFolder(src.handle, session);
+        })
+        .catch(() => undefined);
+    }
+  }, [lastSession, series, loadSample, openFolder]);
 
   // Remember where the researcher is (source, series, slice) so a reload doesn't lose it.
   useEffect(() => {
@@ -586,13 +792,17 @@ export default function App() {
       </main>
 
       <FindingsPanel
+        scan={scanInfo}
+        onTimepoint={setTimepoint}
+        onExport={exportCsv}
+        onScreenshot={saveScreenshot}
         volume={series ? volumeStatus : { kind: 'none' }}
         findings={snap.findings}
         selected={selectedFinding}
         canUndo={!!store && store.canUndo(snap.selectedId)}
         onSelect={(id) => store?.select(id)}
         onGoTo={goToFinding}
-        onApprove={(id) => store?.approve(id)}
+        onApprove={approve}
         onReject={(id) => store?.reject(id)}
         onReopen={(id) => store?.reopen(id)}
         onUndo={(id) => store?.undoLast(id)}
@@ -603,6 +813,14 @@ export default function App() {
           if (r && !r.ok) setNotice(r.reason);
         }}
         onFields={(id, patch) => store?.setFields(id, patch)}
+        priors={priors}
+        suggestion={suggestion}
+        onMatch={(id, prior, status) => store?.setMatch(id, { status, prior: { ...prior, thumbnail: prior.thumbnail }, at: Date.now() }, prior.noduleId)}
+        onClearMatch={(id) => store?.setMatch(id, undefined)}
+        onImport={(file) => void importSheet(file)}
+        onGoToPriorPosition={(prior) => {
+          if (store && prior.centroidWorld) viewerRef.current?.goToSlice(nearestSlice(store.volume, prior.centroidWorld));
+        }}
       />
     </div>
   );

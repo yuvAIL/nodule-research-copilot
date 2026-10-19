@@ -630,3 +630,155 @@ button.danger-link {
   font-size: 12px;
   color: var(--muted);
 }
+
+.record-grid {
+  margin: 0 0 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+}
+
+.record-grid dt {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.record-grid dd {
+  margin: 2px 0 0;
+  word-break: break-word;
+}
+
+.record-grid select {
+  padding: 3px 6px;
+}
+
+.export-row {
+  display: grid;
+  gap: 6px;
+}
+
+.missing-note {
+  grid-column: 2 / -1;
+  font-size: 11px;
+  color: var(--warn);
+}
+
+.fields label.missing select {
+  border-color: var(--warn);
+}
+
+.thumb {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+}
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.card-footer .danger-link {
+  margin-top: 0;
+}
+
+/* ── Follow-up (M3) ───────────────────────────────────────── */
+.followup {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-border);
+  display: grid;
+  gap: 8px;
+}
+
+.followup h3 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.prior-select {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.prior-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.prior-compare img,
+.prior-compare .no-thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  background: #000;
+}
+
+.no-thumb {
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  padding: 6px;
+}
+
+.change-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.change-table th,
+.change-table td {
+  text-align: left;
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.change-table thead th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.delta.up {
+  color: #ff9f8a;
+}
+
+.delta.down {
+  color: #7fd6a4;
+}
+
+.match-row,
+.followup-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.followup-footer {
+  justify-content: space-between;
+}
+
+.chip--match-confident {
+  color: rgb(92, 214, 140);
+  border-color: rgba(92, 214, 140, 0.5);
+}
+
+.chip--match-uncertain {
+  color: rgb(240, 190, 80);
+  border-color: rgba(240, 190, 80, 0.5);
+}

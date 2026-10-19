@@ -33,7 +33,7 @@ export interface StoreSnapshot {
   version: number;
 }
 
-const SAVE_DELAY_MS = 600;
+const SAVE_DELAY_MS = 250;
 const MAX_UNDO = 30;
 
 function makeId(): string {
@@ -78,12 +78,17 @@ export class FindingsStore {
     if (save) this.scheduleSave();
   }
 
+  /** Saves pending changes immediately (e.g. when the tab is hidden or closed). */
+  flush(): void {
+    if (!this.saveTimer) return;
+    clearTimeout(this.saveTimer);
+    this.saveTimer = undefined;
+    void this.saveNow();
+  }
+
   dispose(): void {
     this.disposed = true;
-    if (this.saveTimer) {
-      clearTimeout(this.saveTimer);
-      void this.saveNow();
-    }
+    this.flush();
     this.listeners.clear();
   }
 
@@ -426,6 +431,19 @@ export class FindingsStore {
     this.findings = this.findings.filter((x) => x.id !== id);
     this.undo.delete(id);
     if (this.selectedId === id) this.selectedId = undefined;
+    this.changed();
+  }
+
+  /** Links (or unlinks) a finding to the same nodule on an earlier scan. Optionally adopts the earlier Nodule ID. */
+  setMatch(id: string, match: Finding['match'], adoptName?: string): void {
+    const patch: Partial<Finding> = { match };
+    if (adoptName && !this.findings.some((f) => f.id !== id && f.name === adoptName)) patch.name = adoptName;
+    this.update(id, patch, 'matched');
+    this.changed();
+  }
+
+  setThumbnail(id: string, thumbnail: string): void {
+    this.update(id, { thumbnail });
     this.changed();
   }
 

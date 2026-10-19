@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import type { Finding, Lobe, NoduleType } from '../findings/types';
 import { provenanceLabel } from '../findings/types';
+import { missingFields, type ScanInfo } from '../findings/record';
+import type { MatchStatus, PriorRecord } from '../findings/priors';
+import { FollowUpPanel } from './FollowUpPanel';
 import { DEFAULT_THRESHOLD_HU } from '../measure/segment';
 
 export type VolumeStatus =
@@ -9,7 +12,13 @@ export type VolumeStatus =
   | { kind: 'ready'; restored: number }
   | { kind: 'error'; message: string };
 
+export const TIMEPOINTS = ['Baseline', 'Follow-up 1', 'Follow-up 2', 'Follow-up 3', 'Follow-up 4'];
+
 interface Props {
+  scan?: ScanInfo;
+  onTimepoint: (timepoint: string) => void;
+  onExport: () => void;
+  onScreenshot: (id: string) => void;
   volume: VolumeStatus;
   findings: Finding[];
   selected?: Finding;
@@ -24,6 +33,12 @@ interface Props {
   onDelete: (id: string) => void;
   onResegment: (id: string, thresholdHu: number) => void;
   onFields: (id: string, patch: Partial<Pick<Finding, 'type' | 'lobe' | 'notes'>>) => void;
+  priors: PriorRecord[];
+  suggestion?: { prior: PriorRecord; distanceMm: number };
+  onMatch: (id: string, prior: PriorRecord, status: MatchStatus) => void;
+  onClearMatch: (id: string) => void;
+  onImport: (file: File) => void;
+  onGoToPriorPosition: (prior: PriorRecord) => void;
 }
 
 const TYPES: { value: NoduleType; label: string }[] = [
@@ -82,8 +97,53 @@ export function FindingsPanel(props: Props) {
   const rejected = findings.length - visible.length;
   const toReview = findings.filter((f) => f.status === 'unreviewed').length;
 
+  const approved = findings.filter((f) => f.status === 'approved');
+  const incomplete = approved.filter((f) => missingFields(f).length > 0).length;
+
   return (
     <aside className="copilot">
+      {props.scan && (
+        <section className="panel record">
+          <h2>Research record</h2>
+          <dl className="record-grid">
+            <div>
+              <dt>Patient ID</dt>
+              <dd className="mono">{props.scan.patientId || '—'}</dd>
+            </div>
+            <div>
+              <dt>Date</dt>
+              <dd className="mono">{props.scan.studyDate || '—'}</dd>
+            </div>
+            <div>
+              <dt>Series</dt>
+              <dd>{props.scan.series || '—'}</dd>
+            </div>
+            <div>
+              <dt>Timepoint</dt>
+              <dd>
+                <select value={props.scan.timepoint} onChange={(e) => props.onTimepoint(e.target.value)} aria-label="Timepoint">
+                  {TIMEPOINTS.map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </select>
+              </dd>
+            </div>
+          </dl>
+          <div className="export-row">
+            <button type="button" className="primary" disabled={approved.length === 0} onClick={props.onExport}>
+              Export CSV ({approved.length})
+            </button>
+            <span className="hint">
+              {approved.length === 0
+                ? 'Approve findings to export them.'
+                : `${approved.length} approved${toReview ? ` · ${toReview} not yet reviewed (not exported)` : ''}${
+                    incomplete ? ` · ${incomplete} missing Type/Lobe` : ''
+                  }`}
+            </span>
+          </div>
+        </section>
+      )}
+
       <section className="panel">
         <h2>Findings</h2>
         {volume.kind === 'loading' && (
@@ -124,6 +184,9 @@ export function FindingsPanel(props: Props) {
                       {f.measurement ? `${fmt(f.measurement.longMm)} × ${fmt(f.measurement.shortMm)} mm` : '—'}
                     </span>
                     <span className={`chip chip--${f.status}`}>{STATUS_LABEL[f.status]}</span>
+                    {f.status === 'approved' && missingFields(f).length > 0 && (
+                      <span className="missing-note">missing {missingFields(f).join(', ')}</span>
+                    )}
                   </button>
                 </li>
               ))}
@@ -230,7 +293,7 @@ export function FindingsPanel(props: Props) {
           )}
 
           <div className="fields">
-            <label>
+            <label className={selected.type ? '' : 'missing'}>
               Type
               <select
                 value={selected.type}
@@ -243,7 +306,7 @@ export function FindingsPanel(props: Props) {
                 ))}
               </select>
             </label>
-            <label>
+            <label className={selected.lobe ? '' : 'missing'}>
               Lobe
               <select value={selected.lobe} onChange={(e) => props.onFields(selected.id, { lobe: e.target.value as Lobe })}>
                 {LOBES.map((l) => (
@@ -264,9 +327,31 @@ export function FindingsPanel(props: Props) {
             </label>
           </div>
 
-          <button type="button" className="danger-link" onClick={() => props.onDelete(selected.id)}>
-            Delete finding
-          </button>
+          {selected.status !== 'rejected' && selected.measurement && (
+            <FollowUpPanel
+              key={selected.id}
+              finding={selected}
+              priors={props.priors}
+              suggestion={props.suggestion}
+              patientId={props.scan?.patientId ?? ''}
+              onMatch={(prior, status) => props.onMatch(selected.id, prior, status)}
+              onClearMatch={() => props.onClearMatch(selected.id)}
+              onImport={props.onImport}
+              onGoToPriorPosition={props.onGoToPriorPosition}
+            />
+          )}
+
+          {selected.thumbnail && !selected.match && (
+            <img className="thumb" src={selected.thumbnail} alt={`${selected.name} on the measured slice`} />
+          )}
+          <div className="card-footer">
+            <button type="button" className="link" disabled={!selected.measurement} onClick={() => props.onScreenshot(selected.id)}>
+              Save screenshot (PNG)
+            </button>
+            <button type="button" className="danger-link" onClick={() => props.onDelete(selected.id)}>
+              Delete finding
+            </button>
+          </div>
         </section>
       )}
     </aside>
