@@ -45,10 +45,10 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: false,
-    // Never let the dev server or its file watcher touch local imaging data
-    // that is kept inside the project folder (see .gitignore).
+    // Don't watch local imaging data kept inside the project folder (see .gitignore).
+    // public/sample/ must stay watched: Vite only serves public files it knows about.
     watch: {
-      ignored: ['**/data/**', '**/datasets/**', '**/public/sample/**', '**/*.dcm'],
+      ignored: ['**/data/**', '**/datasets/**'],
     },
   },
   build: {

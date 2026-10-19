@@ -9,19 +9,20 @@ Deadline: **Thu 22 Oct 2026, 18:00 (IL)**. Full brief: `docs/MISSION.md`.
 - Dev-server black-viewport bug fixed (duplicate `@cornerstonejs/metadata` registry in Vite pre-bundle; see `vite.config.ts`).
 - M0 (code): session restore after reload (IndexedDB + File System Access folder handle → one-click "Reopen" at the same series/slice), "Load sample CT" (manifest-based, public data, never in git), `npm run prepare:sample`.
 
-**VERIFIED**
-- Real RIDER-1129164940 series (262 × 512², 1.25 mm) renders in Chrome; slices 1→115 navigated (by Yuval).
-- Strict `tsc` + ESLint pass against the real installed Cornerstone 5.13.1 types (run on the Mac).
-- In the running dev server: one metadata module instance; new M0 modules compile and the UI renders.
+**VERIFIED** (Mon 19 Oct, 20:31)
+- `npm run check` on the Mac: typecheck, lint, 18/18 tests, production build — all green.
+- Private repo `yuvAIL/nodule-research-copilot` created and pushed (commit 73f3847 fixed `.gitignore` that had excluded `src/dicom/`).
+- Real RIDER-1129164940 (262 × 512², 1.25 mm) renders; local folder → Cmd+R → "Reopen" restores the scan (Yuval, Chrome).
+- "Load sample CT" (served from gitignored `public/sample/`): loads 262 slices, opens in lung window; keyboard scroll to slice 115;
+  Mediastinum and Lung presets apply; reload → "Reopen" returns to slice 115 (Claude, desktop-app browser).
+- `public/sample/` is ignored by git (checked with `git check-ignore`).
 
-**NOT YET VERIFIED**
-- Reload → Reopen flow end-to-end (needs a manual folder pick).
-- Load sample CT (needs `npm run prepare:sample` with a RIDER pair).
-- `npm run test` and `vite build` after the M0 changes.
+**DATA ON DISK** (`~/Downloads/manifest-1792427509271`, downloaded from IDC)
+- Only ONE series: RIDER-1129164940, 2006-09-05, series 100 (one timepoint).
+- Missing for M3/M5: the same-day **second scan** of this patient, and **RIDER-LungCT-Seg** (expert SEG/RTSTRUCT).
 
 **BLOCKED / NEEDS YUVAL**
-- GitHub: approved as private; commands in the handoff message (no GitHub sign-in in this session).
-- RIDER folder access for data inspection (CT pairs + RIDER-LungCT-Seg references).
+- Download the second timepoint + matching RIDER-LungCT-Seg objects (instructions in chat).
 
 ## Plan
 
