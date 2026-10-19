@@ -1,0 +1,56 @@
+# ── Dependencies & build output ─────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+build/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# ── Logs ────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Environment / secrets ───────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── OS / editor ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# ── Medical imaging data: NEVER commit ──────────────────────
+# Keep datasets OUTSIDE the repository when possible. If you must keep them
+# inside the project folder, put them under data/ or datasets/.
+data/
+datasets/
+public/sample/
+dicom/
+DICOM/
+TCIA/
+RIDER*/
+LIDC*/
+manifest-*/
+*.dcm
+*.DCM
+*.dicom
+*.ima
+*.IMA
+DICOMDIR
+*.nii
+*.nii.gz
+*.nrrd
+*.mha
+*.mhd
+*.raw
+*.tcia
+*.zip
