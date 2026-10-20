@@ -1,223 +1,143 @@
-# Nodule Research Copilot — Milestone 1: Local CT Viewer
+# Nodule Research Copilot
 
-A browser-based research prototype for a thoracic oncology lab. This milestone is a
-CT viewer that opens a **real DICOM CT series from your computer**, displays it with a
-lung window, and lets you scroll, zoom and pan while showing the slice number and scan
-metadata.
+A browser tool for a thoracic oncology research lab: open a chest CT, click a nodule, get a 3-D outline with
+long axis, short axis and volume in millimetres, correct it with a brush, approve it, and export the lab's
+spreadsheet row, with earlier measurements of the same patient shown next to the new ones.
 
-> **Research use only. Not a medical device. Not for diagnosis or clinical decisions.**
+> **Research prototype. Not a medical device. Not for diagnosis or clinical decisions.**
 
-Built with React 19, TypeScript, Vite 7 and Cornerstone3D 5.x
-(`@cornerstonejs/core`, `@cornerstonejs/tools`, `@cornerstonejs/dicom-image-loader`).
-
----
-
-## 1. One-time setup
-
-### 1.1 Install Node.js (includes `npm`)
-
-You need **Node.js 20.19 or newer** (Node 22 LTS recommended). Vite 7 will not run on older versions.
-
-- **Windows / macOS:** download the *LTS* installer from <https://nodejs.org> and run it.
-- **macOS/Linux with nvm (optional):** `nvm install 22 && nvm use 22`
-  (this repo contains an `.nvmrc`, so `nvm use` inside the folder also works).
-
-Check it worked — open a **new** terminal (macOS: *Terminal*; Windows: *PowerShell*) and run:
-
-```bash
-node --version    # should print v20.19.x, v22.x or newer
-npm --version     # should print 10.x or newer
-```
-
-### 1.2 Install the project's libraries
-
-In the terminal, go into the project folder (the one containing `package.json`) and install:
-
-```bash
-cd path/to/nodule-research-copilot
-npm install
-```
-
-This downloads all libraries into a `node_modules` folder (a few hundred MB — Cornerstone3D
-includes the vtk.js rendering library and image codecs). It takes 1–3 minutes the first time.
-Warnings such as `npm warn deprecated …` are normal; errors are not (see Troubleshooting).
+**Live:** <https://nodule-research-copilot.pages.dev> (Chrome or Edge recommended). Click **Load sample CT**
+to try it on a public, de-identified scan.
 
 ---
 
-## 2. Run the viewer
+## What it does
 
-```bash
-npm run dev
-```
-
-The terminal prints an address, normally **<http://127.0.0.1:5173/>**. Open it in **Chrome or
-Edge** (recommended; Firefox also works). Leave the terminal running while you use the app —
-press `Ctrl + C` in the terminal to stop it.
-
-### Load a CT series
-
-1. Click **Choose folder…** and select the folder that contains the series' DICOM files
-   (sub-folders are scanned too), **or** drag the folder onto the drop zone, **or** use
-   **Choose files…** to pick individual files.
-2. The app reads the DICOM headers, groups files into series, and opens the largest CT series.
-   If the folder contains several series, pick one from the **Series** list.
-3. The image opens with the **lung window (W 1500 / L −600 HU)**.
-
-Your browser may ask you to confirm uploading a folder — that wording is the browser's; the files
-are only read locally by this page and are **never sent anywhere**.
-
-### Controls
-
-| Action | Mouse / keyboard |
+| Step | In the app |
 | --- | --- |
-| Next / previous slice | Mouse wheel, ↑ / ↓ (or ← / →), or the slider below the image |
-| Jump 10 % of the stack | Page Up / Page Down |
-| First / last slice | Home / End |
-| Left-drag | Window/Level (default), or Pan / Zoom — chosen in the toolbar |
-| Pan | Middle-button drag (always) |
-| Zoom | Right-button drag (always) |
-| Window presets | Toolbar: Lung (1500/−600), Mediastinum (350/50), Bone (1800/400) |
-| Reset zoom and pan | **Reset view** |
+| Open a scan | **Open CT folder…** / **Open files…** / drag a folder in, or **Load sample CT**. Series are grouped and ordered by 3-D position; gaps and duplicates are flagged. After a reload (⌘R) the last scan reopens at the same slice. |
+| Measure | **Click nodule (S)** → click inside the nodule. A classical (non-AI) region-grow builds a 3-D outline and computes RECIST-style long/short axes on the slice where the nodule is largest, plus volume. |
+| Correct | **Brush (B)** / **Erase (E)**, size `[` `]`, optional 3-D sphere brush, **Undo (⌘Z)**, **Reset**, threshold slider + re-segment. Edited findings are labelled “edited by researcher”. |
+| Review | **Approve (A)** / **Reject (R)**, **N** = next unreviewed. Type, lobe and notes per finding; missing fields are highlighted. |
+| Document | **Export CSV**: the lab's columns + provenance (measurement source, measured slice, approval time) + follow-up columns. Opens directly in Excel (UTF-8 BOM, CRLF). PNG screenshot per finding. |
+| Follow-up | Earlier measurements come from scans measured in this app or from an imported lab CSV. Each finding shows earlier vs. now, Δ mm / Δ % / Δ volume, and asks “same nodule?” (Confident / Uncertain). |
 
-Keyboard shortcuts work when the image has focus (click it once). Trackpad users: choose
-**Pan** or **Zoom** for the left button in the toolbar.
+Every number in the UI says where it came from (click segmentation, manual, edited). Nothing is labelled AI
+unless a real model produced it.
 
-**Slice order:** for axial series, *slice 1 is the most superior (head-end) slice*. Slices are
-ordered by their 3-D position (ImagePositionPatient projected on the slice normal), falling back
-to InstanceNumber, then file name. The method used is shown under **Geometry → Slice order**.
+## Data & privacy (verified on the live site, 20 Oct 2026)
 
-### What is shown
+- **Your scans never leave the browser.** There is no backend. DICOM files are decoded in web workers in the
+  page; findings and outlines are saved in the browser's IndexedDB on that computer.
+- **Enforced, not just promised:** the site sends a Content-Security-Policy (`connect-src 'self' blob: data:`,
+  also present as a `<meta>` tag in the built page). The browser refuses any connection to another server.
+- **How this was checked** (built-in browser on the deployed site):
+  1. A deliberate `fetch('https://example.com', {method: 'POST'})` from the page was blocked
+     (“violates the following Content Security Policy directive: connect-src 'self' blob: data:”).
+  2. Loading the sample: the network log contains only `GET` requests to this site (app files and the public
+     sample) — no POST, no third-party host.
+  3. Opening 41 DICOM files through **Open files…**, then segmenting, editing, approving and exporting:
+     **zero** network requests after the files were chosen.
+- The only data served by the site is the public sample scan (below).
+- Patient name, patient ID and birth date are not displayed. Use de-identified data in line with your IRB rules.
 
-- **On the image:** slice *n / N*, InstanceNumber, SliceLocation, current window width/level,
-  and zoom.
-- **Scan panel:** modality, study date and description, series number/description, scanner,
-  kVp, reconstruction kernel, contrast agent, image type.
-- **Geometry panel:** number of slices, matrix, pixel spacing, slice thickness, measured slice
-  spacing, orientation, slice-ordering method, transfer syntax (encoding), Series UID.
-- **Current slice panel:** InstanceNumber, SliceLocation, ImagePositionPatient, file path.
-- **Warnings:** e.g. missing slices (gaps), duplicated positions, non-uniform spacing, non-CT
-  modality, images excluded because their size/orientation differs (localizers).
-- **Skipped files:** every file that was not used, with the reason.
+## Data sources & attribution
 
-Patient name, patient ID and birth date are deliberately **not read into the app or displayed**.
+The sample and the evaluation use public data from The Cancer Imaging Archive (TCIA), under Creative Commons
+Attribution (the IDC download metadata states **CC BY 4.0**; older TCIA wiki pages list CC BY 3.0):
+
+- **RIDER Lung CT** — Zhao B, Schwartz LH, Kris MG. *Data From RIDER Lung CT* [Data set]. The Cancer Imaging
+  Archive, 2015. <https://doi.org/10.7937/K9/TCIA.2015.U1X8A5NR>
+- **RIDER-LungCT-Seg** (expert tumour segmentations, used for evaluation) — Wee L, Aerts H, Kalendralis P,
+  Dekker A. *RIDER Lung CT Segmentation Labels from: Decoding tumour phenotype by noninvasive imaging using a
+  quantitative radiomics approach* [Data set]. The Cancer Imaging Archive, 2020.
+  <https://doi.org/10.7937/tcia.2020.jit9grk8>
+- Clark K, et al. *The Cancer Imaging Archive (TCIA): maintaining and operating a public information
+  repository.* J Digit Imaging 2013;26(6):1045–1057. <https://doi.org/10.1007/s10278-013-9622-7>
+
+The sample is patient **RIDER-1129164940**, 2006-09-05, series 100 (262 slices, 1.25 mm), downloaded via the
+NCI Imaging Data Commons. DICOM files are **not** in this repository.
 
 ---
 
-### Day-to-day development
+## Run it locally
 
-Leave `npm run dev` running. Saving any file under `src/` updates the open page automatically
-(hot reload); saving `vite.config.ts` restarts the server by itself. Only after changing
-dependencies or `optimizeDeps`, stop the server and start it once with `npm run dev:clean`.
-
-Keep DICOM data outside this folder (for example `~/Data/RIDER`). If you keep it inside, put it
-under `data/`, which Git and the dev-server file watcher both ignore.
-
-## 3. Checks (run these before committing changes)
+Needs **Node.js 20.19+** (22 LTS recommended): <https://nodejs.org>.
 
 ```bash
-npm run typecheck   # TypeScript, strict mode
-npm run lint        # ESLint
-npm run test        # unit tests (series grouping, slice ordering, window presets)
-npm run check       # all of the above + a production build
+git clone https://github.com/yuvAIL/nodule-research-copilot.git
+cd nodule-research-copilot
+npm install
+npm run dev          # → http://127.0.0.1:5173
 ```
 
-Production build and local preview of that build:
+Optional — the **Load sample CT** button locally needs the sample copied into `public/sample/` (gitignored):
 
 ```bash
-npm run build       # output in dist/
-npm run preview     # serves dist/ at http://127.0.0.1:4173
+npm run prepare:sample -- "/path/to/RIDER-1129164940/<study>/<series-folder>"
 ```
 
----
+### Checks
 
-## 4. Project structure
-
-```
-nodule-research-copilot/
-├─ index.html
-├─ package.json            scripts and pinned dependency ranges
-├─ vite.config.ts          Vite settings required by Cornerstone3D (workers, codecs, dicom-parser)
-├─ tsconfig*.json          TypeScript settings (strict)
-├─ eslint.config.js
-└─ src/
-   ├─ main.tsx             React entry point
-   ├─ App.tsx              layout and loading workflow
-   ├─ styles.css
-   ├─ cornerstone/
-   │  ├─ initCornerstone.ts   one-time init of core, tools and DICOM image loader
-   │  └─ localImageIds.ts     registers local File objects → `dicomfile:` imageIds
-   ├─ dicom/                  framework-independent, unit-tested DICOM logic
-   │  ├─ collectFiles.ts      folder / drag-and-drop traversal, obvious non-DICOM filtering
-   │  ├─ parseHeader.ts       header-only parsing with dicom-parser (stops at PixelData)
-   │  ├─ headerMapping.ts     DICOM tags → typed DicomHeader
-   │  ├─ seriesBuilder.ts     grouping, de-duplication, slice ordering, spacing checks
-   │  └─ types.ts
-   ├─ viewer/windowPresets.ts HU window presets
-   └─ components/
-      ├─ CtViewport.tsx       Cornerstone3D stack viewport + tools (scroll, W/L, pan, zoom)
-      ├─ Toolbar.tsx
-      ├─ FileLoader.tsx
-      └─ MetadataPanel.tsx
+```bash
+npm run check        # TypeScript (strict) + ESLint + unit tests (vitest) + production build
 ```
 
-How it uses Cornerstone3D (no custom rendering or decoding):
+Unit tests cover series grouping/ordering, DICOM header mapping, segmentation on synthetic phantoms (ellipse,
+rotated anisotropic ellipse, sphere volume, vessel cut, cavity, chest-wall contact), measurement geometry,
+the findings store (click / edit / undo / re-segment), CSV round-trip, and follow-up matching.
 
-- `@cornerstonejs/dicom-image-loader` decodes pixels in web workers. Local files are registered
-  with `wadouri.fileManager.add(file)`, which yields `dicomfile:` imageIds. Rescale
-  slope/intercept are applied by the loader, so window values are in Hounsfield units.
-- A `StackViewport` (`Enums.ViewportType.STACK`) displays the slices.
-- Interaction uses built-in tools: `StackScrollTool` (wheel), `WindowLevelTool`, `PanTool`,
-  `ZoomTool`, managed by a `ToolGroup`.
-- The app reads headers itself (with `dicom-parser`, which the loader also uses) only to group
-  and sort files before handing them to Cornerstone.
+### Deploy (Cloudflare Pages, static)
 
----
+```bash
+npm run check
+npx wrangler pages deploy dist --project-name nodule-research-copilot --branch main
+```
 
-## 5. Data handling
-
-- All processing happens in your browser. There is no backend and no network upload.
-- The dev server binds to `127.0.0.1` only, so other machines on your network cannot reach it.
-- `.gitignore` excludes `data/` and `*.dcm` — keep imaging data outside the repository.
-- The files themselves still contain whatever identifiers they were exported with. Use
-  de-identified data in line with your lab's IRB/data-governance rules.
-
-**Public test data:** LIDC-IDRI (thoracic CT with annotated lung nodules) is available from The
-Cancer Imaging Archive (TCIA). Download one series and point the viewer at its folder.
+`public/_headers` sets the security headers on Cloudflare; the CSP `<meta>` tag is injected at build time
+(`vite.config.ts`), so any static host keeps the network restriction.
 
 ---
 
-## 6. Known limitations (milestone 1)
+## How it works
 
-- **Pinned Cornerstone3D 5.13.1.** All `@cornerstonejs/*` packages must stay on the same exact
-  version; upgrade them together and re-test loading a real series.
-- **Single-frame DICOM only.** Enhanced/multi-frame CT (one file with many frames) is detected and
-  skipped with a message.
-- **DICOM Part 10 files only** (files with the 128-byte preamble and `DICM` marker). Raw data sets
-  without a preamble are skipped.
-- **No archives / NIfTI.** `.zip` files must be extracted first; NIfTI (`.nii`, `.nii.gz`) is not
-  supported yet. `DICOMDIR` index files are ignored (the image files are scanned directly).
-- **One series at a time, one axial-plane viewport.** No MPR (coronal/sagittal reformats), no 3-D.
-- **No measurements, HU probe or annotations yet**, and no AI detection (by design).
-- **Memory:** a series is held in browser memory. Very large series (thousands of slices) may be
-  slow on machines with little RAM. Switching series releases the previous series' cached images.
-- **Requires WebGL2** (any recent desktop browser with hardware acceleration enabled).
-- Compressed transfer syntaxes (JPEG, JPEG-LS, JPEG 2000, HTJ2K, RLE) are decoded by
-  Cornerstone's bundled codecs; unusual or broken encodings show an error instead of an image.
-- Slice-order and spacing warnings are heuristics to help spot incomplete exports; they are not a
-  validation of the data.
+- **Viewer:** Cornerstone3D 5.13.1 `StackViewport`; `@cornerstonejs/dicom-image-loader` decodes in web workers
+  (rescale slope/intercept applied → Hounsfield units). All `@cornerstonejs/*` packages are pinned to one version.
+- **Segmentation** (`src/measure/segment.ts`): threshold (−400 HU default, adjustable) → per-slice lung
+  convex-hull constraint (keeps the chest wall out) → adaptive morphological opening (0–6 voxels, first setting
+  that does not leak) → 60 mm search radius with leak check → slice-wise hole filling.
+- **Measurement** (`src/measure/measure.ts`): long axis = largest in-plane extent on the slice with the largest
+  area, short axis = largest extent perpendicular to it (edge-to-edge convention), volume = voxels × voxel volume.
+- **Findings** (`src/findings/`): one shared labelmap, per-stroke undo, provenance and review status, timestamps
+  (used for the time analysis), saved per series in IndexedDB and restored on reopen.
 
----
+```
+src/
+├─ cornerstone/   init, local file → imageId, HU volume builder
+├─ dicom/         header parsing, series grouping/ordering (unit-tested)
+├─ measure/       segmentation, labelmap, measurement, phantoms (unit-tested)
+├─ findings/      store, CSV record/export/import, follow-up priors (unit-tested)
+├─ session/       IndexedDB, folder handles, last-session restore, sample loader
+├─ components/    viewport, toolbar, findings / follow-up / file panels
+└─ App.tsx
+```
 
-## 7. Troubleshooting
+## Known limitations
+
+- **Segmentation is classical, not AI**, and is tuned for solid nodules. On large masses touching the hilum
+  the outline can follow hilar structures on some slices and needs manual erasing. Ground-glass nodules need a
+  lower threshold (slider) and are less reliable. Accuracy vs. expert outlines: see `docs/EVALUATION.md`.
+- **Follow-up “same nodule?” suggestion** uses closest patient-coordinate position — a hint, not registration.
+  The researcher confirms every match.
+- Single-frame DICOM Part 10 CT only; no NIfTI, no zip; one axial viewport (no MPR).
+- A series is held in browser memory; Chrome/Edge needed for folder re-open after reload (File System Access API).
+- Saved work lives in that browser profile on that computer; clearing site data deletes it. Export CSV to keep it.
+
+## Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
-| `npm: command not found` / `'npm' is not recognized` | Node.js is not installed or the terminal was opened before installing — reopen the terminal. |
-| `Unsupported engine` or Vite says Node is too old | Install Node 22 LTS (section 1.1). |
-| `npm install` fails with `ERESOLVE` | Run `npm install --legacy-peer-deps` and report the original error message. |
-| Blank white page; console shows `Module "events" has been externalized…` and `Class extends value undefined` | A dependency imports Node's `events` module. The project depends on the browser-compatible [`events`](https://www.npmjs.com/package/events) package and `vite.config.ts` routes `events`/`node:events` to it. Run `npm install`, delete `node_modules/.vite`, then `npm run dev`. `npm run diagnose:builtins` lists which installed packages import Node built-ins. |
-| Black viewport; console shows `loadImageFromNaturalizedMetadata: no pixel data in NATURALIZED` | The dev server pre-bundled two copies of `@cornerstonejs/metadata`. Fixed in `vite.config.ts` (`optimizeDeps.include`). After changing that file, run `npm run dev:clean` once. |
-| Page is blank / "Failed to initialise Cornerstone3D" | Use Chrome or Edge; enable *Use graphics acceleration* in browser settings. |
-| "Failed to fetch dynamically imported module" after an update | Stop the server, delete `node_modules/.vite`, run `npm run dev` again. |
-| Port 5173 already in use | Vite picks the next free port automatically — use the address it prints. |
-| "No displayable DICOM image series were found" | Open **Skipped files** to see why each file was rejected. |
+| Blank page, console mentions `events` / `Class extends value undefined` | `npm install`, delete `node_modules/.vite`, `npm run dev`. |
+| Black viewport, `no pixel data in NATURALIZED` (dev only) | `npm run dev:clean` once (duplicate metadata registry; see `vite.config.ts`). |
+| “Failed to initialise Cornerstone3D” | Use Chrome/Edge with graphics acceleration on (WebGL2). |
+| “No displayable DICOM image series were found” | Open **Skipped files** to see why each file was rejected. |

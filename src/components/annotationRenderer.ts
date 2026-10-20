@@ -16,6 +16,8 @@ export interface AnnotationScene {
   findings: Finding[];
   selectedId?: string;
   brush?: { x: number; y: number; radiusMm: number; erase: boolean };
+  /** Read-only expert outline, drawn as a dotted magenta edge (never editable). */
+  reference?: { labelmap: Labelmap; names: string[] };
 }
 
 type Rgb = [number, number, number];
@@ -29,7 +31,10 @@ function colorFor(f: Finding, selectedId: string | undefined): Rgb | undefined {
   return f.status === 'approved' ? APPROVED : UNREVIEWED;
 }
 
+const EXPERT: Rgb = [236, 110, 220];
+
 let offscreen: HTMLCanvasElement | undefined;
+let refOffscreen: HTMLCanvasElement | undefined;
 
 function rgba(c: Rgb, a: number): string {
   return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a})`;
@@ -153,6 +158,67 @@ export function drawAnnotations(ctx: CanvasRenderingContext2D, view: ViewMapper,
         if (top) {
           const p = view.voxelToCanvas(top[0], top[1]);
           drawTag(ctx, p[0] + 6, p[1] - 6, f.name, color);
+        }
+      }
+    }
+  }
+
+  // ── expert reference (edge only, dotted) ───────────────────────
+  const ref = scene.reference;
+  if (ref && k >= 0 && k < ref.labelmap.slices) {
+    const slice = ref.labelmap.sliceView(k);
+    const { cols, rows } = ref.labelmap;
+    const tagAt = new Map<number, [number, number]>();
+    let any = false;
+    for (let p = 0; p < slice.length; p++) {
+      if (slice[p] !== 0) {
+        any = true;
+        break;
+      }
+    }
+    if (any) {
+      refOffscreen ??= document.createElement('canvas');
+      if (refOffscreen.width !== cols || refOffscreen.height !== rows) {
+        refOffscreen.width = cols;
+        refOffscreen.height = rows;
+      }
+      const octx = refOffscreen.getContext('2d');
+      if (octx) {
+        const img = octx.createImageData(cols, rows);
+        const px = img.data;
+        for (let j = 0; j < rows; j++) {
+          for (let i = 0; i < cols; i++) {
+            const p = j * cols + i;
+            const l = slice[p] as number;
+            if (!l) continue;
+            if (!tagAt.has(l)) tagAt.set(l, [i, j]);
+            const edge =
+              i === 0 || j === 0 || i === cols - 1 || j === rows - 1 ||
+              slice[p - 1] !== l || slice[p + 1] !== l || slice[p - cols] !== l || slice[p + cols] !== l;
+            if (!edge) continue;
+            const q = p * 4;
+            px[q] = EXPERT[0];
+            px[q + 1] = EXPERT[1];
+            px[q + 2] = EXPERT[2];
+            px[q + 3] = (i + j) % 3 === 0 ? 90 : 255;
+          }
+        }
+        octx.putImageData(img, 0, 0);
+        const o = view.voxelToCanvas(0, 0);
+        const ex = view.voxelToCanvas(1, 0);
+        const ey = view.voxelToCanvas(0, 1);
+        const a = ex[0] - o[0];
+        const b = ex[1] - o[1];
+        const c = ey[0] - o[0];
+        const d = ey[1] - o[1];
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.transform(a, b, c, d, o[0] - 0.5 * (a + c), o[1] - 0.5 * (b + d));
+        ctx.drawImage(refOffscreen, 0, 0);
+        ctx.restore();
+        for (const [l, top] of tagAt) {
+          const p = view.voxelToCanvas(top[0], top[1]);
+          drawTag(ctx, p[0] - 40, p[1] - 8, `Expert: ${ref.names[l - 1] ?? l}`, EXPERT);
         }
       }
     }

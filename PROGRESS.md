@@ -1,6 +1,30 @@
 # Progress — Nodule Research Copilot
 
-Deadline: **Thu 22 Oct 2026, 18:00 (IL)**. Full brief: `docs/MISSION.md`.
+Deadline (own target): **Wed 21 Oct 2026, 18:00 (IL)**. Full brief: `docs/MISSION.md`.
+Live: **https://nodule-research-copilot.pages.dev** (Cloudflare Pages, static).
+
+## Assumptions (made without asking — revisit if wrong)
+- Host = Cloudflare Pages (free, static, custom headers via `public/_headers`, per-file limit fits DICOM slices).
+- The public sample (RIDER-1129164940, CC BY) may be served from the live site; it is not in git.
+- Licence wording: CC BY 4.0 as stated in the IDC download metadata (older TCIA wiki pages say CC BY 3.0).
+
+## Deploy — Tue 20 Oct, 14:00 ✅
+
+**BUILT** — Production deploy on Cloudflare Pages (wrangler, direct upload of `dist/`, 275 files incl. sample).
+Content-Security-Policy in two places: `public/_headers` (HTTP header, + frame-ancestors) and a build-time
+`<meta>` tag (`vite.config.ts`), so the restriction survives any static host. "Data & privacy" panel in the app
+with TCIA attribution + DOIs. README rewritten (live URL, verified privacy statement, attribution, run/deploy).
+**VERIFIED** (Claude, built-in browser, live URL)
+- `npm run check` on the Mac: 43/43 tests, lint, typecheck, build green (Yuval's terminal).
+- CSP header and meta tag both present; Cornerstone workers + WASM decode fine under CSP (no CSP errors).
+- Deliberate `fetch('https://example.com', POST)` → blocked by `connect-src`.
+- Load sample → 262 slices; Click nodule on slice 80 (right posterior mass) → N1 52.7 × 26.0 mm, 23 244 mm³,
+  40 slices, axes on slice 84; erase stroke → 22 440 mm³; ⌘Z → 23 244; A → approved; Export CSV →
+  `RIDER-1129164940_Baseline_2026-10-20.csv`, bytes EF BB BF, CRLF, 1 row with provenance (semi-auto, slice 84).
+- Network log: only same-origin GETs (app files + `/sample/…`). 41 DICOM files opened via **Open files…** →
+  **0** network requests afterwards.
+**NOTE** — Same tumour, different seed slice → 23.2 mL here vs 31.5 mL on 19 Oct: the click result depends on
+where you click. To quantify in M5 (seed-to-seed variability), not hide.
 
 ## M2 — Documentation that writes itself (Mon 19 Oct, 21:45) ✅
 

@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { viteCommonjs } from '@originjs/vite-plugin-commonjs';
 
@@ -27,8 +27,35 @@ import { viteCommonjs } from '@originjs/vite-plugin-commonjs';
 //  Vite does not polyfill Node built-ins, so the browser-compatible `events`
 //  npm package (a direct dependency) is used instead; `node:events` is aliased
 //  to it explicitly. `npm run diagnose:builtins` lists packages that need it.
+// Privacy guarantee for the built app: the browser may only contact the app's own
+// origin, so local DICOM files cannot be sent anywhere else. Production builds only
+// (the dev server needs inline scripts and a websocket for hot reload).
+// Keep in sync with public/_headers (which also sets frame-ancestors).
+export const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval'",
+  "worker-src 'self' blob:",
+  "connect-src 'self' blob: data:",
+  "img-src 'self' blob: data:",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'none'",
+].join('; ');
+
+function contentSecurityPolicy(): Plugin {
+  return {
+    name: 'nrc-content-security-policy',
+    apply: 'build',
+    transformIndexHtml: () => [
+      { tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: CONTENT_SECURITY_POLICY }, injectTo: 'head-prepend' },
+    ],
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), viteCommonjs()],
+  plugins: [react(), viteCommonjs(), contentSecurityPolicy()],
   resolve: {
     alias: [{ find: /^node:events$/, replacement: 'events' }],
   },

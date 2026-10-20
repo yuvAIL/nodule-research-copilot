@@ -20,6 +20,12 @@ import { importSpreadsheet, suggestMatch, type PriorRecord } from './findings/pr
 import { nearestSlice, voxelToWorld, type Vec3 } from './measure/volume';
 import { FileLoader, type ResumeOffer } from './components/FileLoader';
 import { MetadataPanel } from './components/MetadataPanel';
+import { ReferencePanel, type AgreementView, type LoadedReference } from './components/ReferencePanel';
+import type { Labelmap } from './measure/labelmap';
+import { measureLabel } from './measure/measure';
+import { bestReferenceLabel, compareToReference } from './reference/compare';
+import { parseReference } from './reference/parseReference';
+import { rasterizeReference } from './reference/rasterize';
 import { Toolbar } from './components/Toolbar';
 import { preFilter } from './dicom/collectFiles';
 import { parseDicomHeaders, type LocalFile, type ParseProgress } from './dicom/parseHeader';
@@ -89,6 +95,12 @@ export default function App() {
   const lastPaint = useRef<{ i: number; j: number; k: number } | undefined>(undefined);
   const snap = useSyncExternalStore(store?.subscribe ?? noopSubscribe, store?.getSnapshot ?? emptySnapshot);
   const selectedFinding = snap.findings.find((f) => f.id === snap.selectedId);
+
+  // Expert reference (read-only outline from a DICOM SEG / RTSTRUCT), per open series.
+  const [reference, setReference] = useState<{ seriesUid: string; labelmap: Labelmap; info: LoadedReference }>();
+  const [showReference, setShowReference] = useState(true);
+  const [referenceError, setReferenceError] = useState<string>();
+  const [agreement, setAgreement] = useState<AgreementView>();
   const [timepoints, setTimepoints] = useState<Record<string, string>>({});
   const [priors, setPriors] = useState<PriorRecord[]>([]);
   const [priorsVersion, setPriorsVersion] = useState(0);
@@ -140,6 +152,82 @@ export default function App() {
     const c = f.measurement?.centroid;
     return c && store ? voxelToWorld(store.volume, c.i, c.j, c.k) : undefined;
   };
+
+  // An expert outline belongs to one series: drop it when another series (or scan) is opened.
+  useEffect(() => {
+    setReference((r) => (r && r.seriesUid !== seriesUid ? undefined : r));
+    setReferenceError(undefined);
+  }, [seriesUid]);
+
+  const loadReference = useCallback(
+    async (file: File) => {
+      if (!store || !seriesUid) return;
+      setReferenceError(undefined);
+      try {
+        const ref = parseReference(new Uint8Array(await file.arrayBuffer()));
+        if (ref.referencedSeriesUid && ref.referencedSeriesUid !== seriesUid) {
+          setReferenceError(
+            `This outline was drawn on another series (…${ref.referencedSeriesUid.slice(-12)}). Open that scan first — ` +
+              'outlines are only compared on the scan they were drawn on.',
+          );
+          return;
+        }
+        const raster = rasterizeReference(ref, store.volume);
+        if (raster.segments.every((s) => s.voxelCount === 0)) {
+          setReferenceError('No part of this outline lies on the open series.');
+          return;
+        }
+        const warnings = [...raster.warnings];
+        if (!ref.referencedSeriesUid) warnings.push('The file does not name its series; it was placed by patient coordinates only.');
+        const segments = raster.segments.map((s) => ({
+          ...s,
+          measurement: s.voxelCount ? measureLabel(raster.labelmap, store.volume, s.label, { kMin: s.kMin, kMax: s.kMax }) : undefined,
+        }));
+        setReference({
+          seriesUid,
+          labelmap: raster.labelmap,
+          info: {
+            kind: ref.kind,
+            fileName: file.name,
+            description: ref.seriesDescription,
+            creator: ref.creator,
+            segments,
+            warnings,
+          },
+        });
+        setShowReference(true);
+      } catch (e) {
+        setReferenceError(`Could not read ${file.name}: ${errorText(e)}`);
+      }
+    },
+    [store, seriesUid],
+  );
+
+  useEffect(() => {
+    viewerRef.current?.redrawAnnotations();
+  }, [reference, showReference]);
+
+  // Agreement of the selected finding with the expert outline (debounced: it scans the voxels).
+  useEffect(() => {
+    if (!reference || !store || !selectedFinding) {
+      setAgreement(undefined);
+      return;
+    }
+    setAgreement({ kind: 'busy' });
+    const f = selectedFinding;
+    const timer = window.setTimeout(() => {
+      const refLabel = bestReferenceLabel(store.labelmap, f.label, reference.labelmap, { kMin: f.kMin, kMax: f.kMax });
+      const seg = refLabel ? reference.info.segments[refLabel - 1] : undefined;
+      if (!refLabel || !seg) {
+        setAgreement({ kind: 'no-overlap', finding: f.name });
+        return;
+      }
+      const range = { kMin: Math.min(f.kMin, seg.kMin), kMax: Math.max(f.kMax, seg.kMax) };
+      const a = compareToReference(store.labelmap, f.label, reference.labelmap, refLabel, store.volume, range);
+      setAgreement(a ? { kind: 'ok', finding: f.name, segment: seg.name, agreement: a } : { kind: 'no-overlap', finding: f.name });
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [reference, store, selectedFinding]);
 
   // Save a summary of approved findings so later scans of the same patient can compare against them.
   useEffect(() => {
@@ -341,9 +429,13 @@ export default function App() {
         findings: snap.findings,
         selectedId: snap.selectedId,
         brush: brushing && cursor ? { ...cursor, radiusMm: brushRadiusMm, erase: leftTool === 'erase' } : undefined,
+        reference:
+          reference && showReference
+            ? { labelmap: reference.labelmap, names: reference.info.segments.map((x) => x.name) }
+            : undefined,
       });
     },
-    [store, snap, leftTool, brushRadiusMm],
+    [store, snap, leftTool, brushRadiusMm, reference, showReference],
   );
 
   const onPointer = useCallback(
@@ -731,6 +823,20 @@ export default function App() {
           </section>
         )}
 
+        {series && (
+          <ReferencePanel
+            ready={!!store}
+            reference={reference?.info}
+            show={showReference}
+            error={referenceError}
+            agreement={agreement}
+            onLoad={(file) => void loadReference(file)}
+            onShow={setShowReference}
+            onClear={() => setReference(undefined)}
+            onGoTo={(k) => viewerRef.current?.goToSlice(k)}
+          />
+        )}
+
         {series && <MetadataPanel series={series} current={current} />}
 
         {skipped.length > 0 && (
@@ -748,6 +854,27 @@ export default function App() {
             </details>
           </section>
         )}
+        <section className="panel about">
+          <h2>Data &amp; privacy</h2>
+          <p>
+            Your scans are read only inside this browser and are never uploaded.
+            {import.meta.env.PROD
+              ? ' The page’s security policy (CSP) makes the browser block any connection to another server.'
+              : ' (Development build: the security policy is applied in production builds.)'}
+          </p>
+          <p>
+            Sample data:{' '}
+            <a href="https://doi.org/10.7937/K9/TCIA.2015.U1X8A5NR" target="_blank" rel="noreferrer">
+              RIDER Lung CT
+            </a>{' '}
+            (The Cancer Imaging Archive, CC BY 4.0). Expert outlines:{' '}
+            <a href="https://doi.org/10.7937/tcia.2020.jit9grk8" target="_blank" rel="noreferrer">
+              RIDER-LungCT-Seg
+            </a>
+            .
+          </p>
+          <p className="muted">Research prototype — not a medical device, not for diagnosis.</p>
+        </section>
       </aside>
 
       <main className="main">
