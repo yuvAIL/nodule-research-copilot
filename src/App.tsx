@@ -390,22 +390,31 @@ export default function App() {
   }, [reference, store, selectedFinding]);
 
   // Save a summary of approved findings so later scans of the same patient can compare against them.
+  // Keyed by the series of the loaded 3D data (not the selection, which changes first when switching),
+  // and flushed — not dropped — when the researcher moves on, so an approval just before switching
+  // scans is never lost. Each save refreshes the earlier-measurement list.
   useEffect(() => {
-    if (!store || !scanInfo || !seriesUid || !patientId) return;
-    const timer = window.setTimeout(() => {
-      const records: PriorRecord[] = snap.findings
+    if (!store || !scanInfo || !patientId || store.seriesUid !== seriesUid) return;
+    const uid = store.seriesUid;
+    const findings = snap.findings;
+    const info = scanInfo;
+    let saved = false;
+    const save = () => {
+      if (saved) return;
+      saved = true;
+      const records: PriorRecord[] = findings
         .filter((f) => f.status === 'approved' && f.approved)
         .map((f) => {
           const m = f.approved?.measurement;
           const c = m?.centroid;
           return {
-            key: `app:${seriesUid}:${f.id}`,
+            key: `app:${uid}:${f.id}`,
             source: 'app',
             patientId,
-            timepoint: scanInfo.timepoint,
-            date: scanInfo.studyDate,
-            series: scanInfo.series,
-            seriesUid,
+            timepoint: info.timepoint,
+            date: info.studyDate,
+            series: info.series,
+            seriesUid: uid,
             noduleId: f.name,
             longMm: m?.longMm,
             shortMm: m?.shortMm,
@@ -417,12 +426,18 @@ export default function App() {
             centroidWorld: c ? voxelToWorld(store.volume, c.i, c.j, c.k) : undefined,
           };
         });
-      void idbSet(`summary:${seriesUid}`, records);
-      void idbGet<string[]>(`patientSeries:${patientId}`).then((list) => {
-        if (!list?.includes(seriesUid)) void idbSet(`patientSeries:${patientId}`, [...(list ?? []), seriesUid]);
-      });
-    }, 500);
-    return () => window.clearTimeout(timer);
+      void (async () => {
+        await idbSet(`summary:${uid}`, records);
+        const list = await idbGet<string[]>(`patientSeries:${patientId}`);
+        if (!list?.includes(uid)) await idbSet(`patientSeries:${patientId}`, [...(list ?? []), uid]);
+        setPriorsVersion((v) => v + 1);
+      })();
+    };
+    const timer = window.setTimeout(save, 400);
+    return () => {
+      window.clearTimeout(timer);
+      save();
+    };
   }, [store, snap, scanInfo?.timepoint, scanInfo?.studyDate, scanInfo?.series, seriesUid, patientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load earlier measurements: other scans of this patient measured here + imported spreadsheet rows.
