@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-10-20T13:52:52.752Z",
+  "complete": true,
+  "pending": 0,
+  "all": {
+    "scans": 59,
+    "hits": 53,
+    "diceMedianOfHits": 0.7635782747603834,
+    "diceAtLeast07": 31,
+    "absLongDiffMmMedian": 5.481032502197069,
+    "absVolDiffPctMedian": 26.195899772209575,
+    "candidatesPerScanMedian": 4,
+    "unconfirmedPerScanMedian": 3
+  },
+  "nodules (expert long axis ≤ 30 mm)": {
+    "scans": 18,
+    "hits": 15,
+    "diceMedianOfHits": 0.6842173686947478,
+    "diceAtLeast07": 7,
+    "absLongDiffMmMedian": 3.4141046504607573,
+    "absVolDiffPctMedian": 39.3912509383744,
+    "candidatesPerScanMedian": 5.5,
+    "unconfirmedPerScanMedian": 4.5
+  },
+  "masses (> 30 mm)": {
+    "scans": 41,
+    "hits": 38,
+    "diceMedianOfHits": 0.8147593637090635,
+    "diceAtLeast07": 24,
+    "absLongDiffMmMedian": 6.612947470297035,
+    "absVolDiffPctMedian": 20.08513805817719,
+    "candidatesPerScanMedian": 3,
+    "unconfirmedPerScanMedian": 2
+  },
+  "misses": [
+    "RIDER-1286684383 TEST",
+    "RIDER-1760553574 TEST",
+    "RIDER-1760553574 RETEST",
+    "RIDER-1801720707 RETEST",
+    "RIDER-2073083717 TEST",
+    "RIDER-2073083717 RETEST"
+  ]
+}

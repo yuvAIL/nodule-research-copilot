@@ -46,21 +46,37 @@ the honest headline.
 - **Product consequence:** the click is the *fallback*, not the main path. The researcher must see and correct the
   outline before approving — which the app enforces (nothing is exported unapproved, edits are tracked).
 
-## 3. AI candidates (measured, small N)
+## 3. AI candidates (measured — the headline)
 
-Model: **TotalSegmentator 2.18.0, task `lung_nodules`** (Apache-2.0), run offline on a MacBook (Apple Silicon, `--device mps`),
-~2 min per scan, output as DICOM SEG and loaded into the app as candidates.
+Model: **TotalSegmentator 2.18.0, task `lung_nodules`** (Apache-2.0), run offline on a MacBook (Apple Silicon,
+`--device mps`, ~2 min per scan), output as DICOM SEG and turned into candidates by the app's own code
+(`npm run eval:ai`, `scripts/evaluate-ai.cjs`). Definitions fixed before the run: **hit** = at least one candidate
+overlaps the expert MANUAL outline; Dice/axes are for the candidate that overlaps most; other candidates are
+**unconfirmed** (the dataset labels one primary tumour per patient, so they may be false positives *or* real,
+unlabelled nodules).
 
-| Scan | Expert lesion | AI candidates | Hit? | Dice vs expert | Long axis AI / expert |
-|---|---|---|---|---|---|
-| RIDER-1129164940 TEST | 59.8 mm, 55.0 mL | 2 | **Yes** (candidate 1) | **0.87** | 55.4 / 59.8 mm |
+| AI vs expert, all 59 scans / 31 patients | All | Nodules ≤ 30 mm (18) | Masses > 30 mm (41) |
+|---|---|---|---|
+| **Tumour found (hit)** | **53 / 59 (90 %)** | 15 / 18 | 38 / 41 |
+| Patients with the tumour found on ≥ 1 of 2 scans | 29 / 31 | | |
+| Dice of the hit (median [IQR]) | **0.76** [0.59–0.86] | 0.68 | 0.81 |
+| Dice ≥ 0.7 | 31 / 59 | 7 / 18 | 24 / 41 |
+| \|long-axis error\| (median) | **5.5 mm** | 3.4 mm | 6.6 mm |
+| \|volume error\| (median) | 26 % | 39 % | 20 % |
+| Candidates per scan (median; 90th pct; max) | 4; 23; 30 | 5.5 | 3 |
 
-- The second candidate (5.2 × 3.4 mm) does not overlap the expert outline. It may be a false positive or a real
-  small nodule the dataset does not label — that is exactly the researcher's call, and the worklist asks for it.
-- For context on the same scan: 5 independent QIBA readers scored Dice 0.72–0.87 against this expert; 3 published
-  QIN challenge algorithms 0.81–0.88; our click 0.61.
-- **Pending:** AI on all 59 scans (detection rate + Dice). Command in §6. Until then, AI accuracy is **N = 1** and must
-  be presented as such.
+Split check (same split as §2): development 19/20 hits, Dice 0.62; held-out 34/39 hits, Dice 0.77.
+
+**AI vs our click segmentation on the same 59 scans:** Dice 0.76 vs 0.58, long-axis error 5.5 vs 10.5 mm, volume error
+26 % vs 55 %. → The AI is the main path; the click is for what the AI misses.
+
+**Where the AI fails**
+- **Misses (6 scans, 4 patients):** RIDER-1286684383 TEST, RIDER-1760553574 TEST+RETEST, RIDER-1801720707 RETEST,
+  RIDER-2073083717 TEST+RETEST. In the app these are "added by researcher" (press S, click) — counted as the miss rate.
+- **Noisy scans:** a few scans produce 15–30 candidates (90th percentile 23). Most are small and unconfirmed; review takes
+  longer there (each is one keypress to reject). A minimum-size filter is a researcher decision we have not made for them.
+- For context on one scan with 5 independent readers (RIDER-1129164940 TEST): readers 0.72–0.87, QIN challenge
+  algorithms 0.81–0.88, TotalSegmentator 0.87, our click 0.61.
 
 ## 4. Repeatability — same patient, two scans 15 minutes apart (measured)
 
@@ -99,10 +115,11 @@ between creation and approval.
 # expert data (31 patients) via the NCI Imaging Data Commons
 #   see README → "Evaluation data"
 npm run eval -- ~/Downloads/rider-seg-all --out docs/eval      # → docs/eval/results.csv, summary.json
-# AI on all scans (background, ~2 min per scan on Apple Silicon)
+# AI on all scans (background, ~2 min per scan on Apple Silicon), then score it
 for d in $(find ~/Downloads/rider-seg-all -type d -name "CT_*"); do
   TotalSegmentator -i $d -o ~/Downloads/ai-results/rider/$(basename $d).dcm -ta lung_nodules --output_type dicom_seg --device mps
 done
+npm run eval:ai -- ~/Downloads/rider-seg-all ~/Downloads/ai-results/rider --out docs/eval   # → ai-results.csv, ai-summary.json
 ```
 
 ## 7. Known failure modes (seen in the data)

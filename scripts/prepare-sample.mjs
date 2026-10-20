@@ -3,7 +3,7 @@
  * Prepares the "Load sample CT" data from a local TCIA download.
  *
  *   npm run prepare:sample -- <series-folder> [<second-series-folder>] [--out public/sample] [--title "..."]
- *                             [--ai <AI result SEG for the first series>] [--reference <expert SEG/RTSTRUCT>]
+ *                             [--ai <seg1.dcm,seg2.dcm>] [--reference <expert1.dcm,...>]
  *
  * Each folder is one CT series (e.g. the test and retest scans of one RIDER
  * patient). DICOM Part 10 files are copied to <out>/t1/, <out>/t2/, ... and a
@@ -26,8 +26,9 @@ const title = flag('--title', 'RIDER Lung CT sample (public, de-identified)');
 // Every preparation gets its own folder name: browsers cache /sample/* for a week, so a new
 // sample must never reuse the URLs of an old one.
 const tag = flag('--tag', `v${Date.now().toString(36)}`);
-const aiFile = flag('--ai', undefined);
-const referenceFile = flag('--reference', undefined);
+// Comma-separated lists: each AI result / expert outline is matched to its scan by the app.
+const aiFiles = (flag('--ai', '') || '').split(',').filter(Boolean);
+const referenceFiles = (flag('--reference', '') || '').split(',').filter(Boolean);
 const folders = args;
 
 if (folders.length === 0) {
@@ -80,17 +81,19 @@ folders.forEach((folder, i) => {
 });
 
 const extras = {};
-for (const [key, file] of [['ai', aiFile], ['reference', referenceFile]]) {
-  if (!file) continue;
-  const src = resolve(file);
-  if (!existsSync(src) || !isDicomPart10(src)) {
-    console.error(`--${key}: not a DICOM file: ${src}`);
-    process.exit(1);
-  }
-  mkdirSync(join(out, tag), { recursive: true });
-  copyFileSync(src, join(out, tag, `${key}.dcm`));
-  extras[key] = `${tag}/${key}.dcm`;
-  console.log(`${key}: ${src}`);
+for (const [key, files] of [['ai', aiFiles], ['reference', referenceFiles]]) {
+  files.forEach((file, n) => {
+    const src = resolve(file);
+    if (!existsSync(src) || !isDicomPart10(src)) {
+      console.error(`--${key}: not a DICOM file: ${src}`);
+      process.exit(1);
+    }
+    mkdirSync(join(out, tag), { recursive: true });
+    const name = `${tag}/${key}-${n + 1}.dcm`;
+    copyFileSync(src, join(out, name));
+    (extras[key] ??= []).push(name);
+    console.log(`${key}: ${src}`);
+  });
 }
 
 writeFileSync(

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import type { Finding, Lobe, NoduleType } from '../findings/types';
 import { provenanceLabel } from '../findings/types';
 import { missingFields, type ScanInfo } from '../findings/record';
@@ -16,6 +16,8 @@ export type VolumeStatus =
 export const TIMEPOINTS = ['Baseline', 'Follow-up 1', 'Follow-up 2', 'Follow-up 3', 'Follow-up 4'];
 
 interface Props {
+  /** Shown at the top of the panel (patient timeline). */
+  header?: ReactNode;
   scan?: ScanInfo;
   onTimepoint: (timepoint: string) => void;
   onExport: () => void;
@@ -42,6 +44,11 @@ interface Props {
   onGoToPriorPosition: (prior: PriorRecord) => void;
   /** Loads an AI result (DICOM SEG) as candidates to review. */
   onLoadAi: (file: File) => void;
+  /** HU-based type suggestion for the selected finding (rule of thumb, researcher decides). */
+  typeHint?: { suggestion: NoduleType; meanHu: number; solidFraction: number };
+  /** Lobe suggested from the AI lobe map, per finding id. */
+  lobeHints?: Map<string, { lobe: Lobe; fraction: number }>;
+  lobeModel?: string;
 }
 
 const TYPES: { value: NoduleType; label: string }[] = [
@@ -65,6 +72,17 @@ function SourceChip({ f }: { f: Finding }) {
   return (
     <span className="chip chip--you" title={f.source === 'click' ? 'Added by you (click segmentation)' : 'Added by you (brush)'}>
       You
+    </span>
+  );
+}
+
+/** Volume change vs the matched earlier scan, with arrow and words (never colour alone). */
+function DeltaChip({ now, before, label }: { now: number; before: number; label: string }) {
+  const pct = ((now - before) / before) * 100;
+  const dir = Math.abs(pct) < 0.5 ? 'same' : pct > 0 ? 'up' : 'down';
+  return (
+    <span className={`delta-chip delta-chip--${dir}`} title={`Volume vs ${label}`}>
+      {dir === 'up' ? '▲' : dir === 'down' ? '▼' : '='} {Math.abs(pct).toFixed(0)}% vs {label}
     </span>
   );
 }
@@ -127,6 +145,7 @@ export function FindingsPanel(props: Props) {
 
   return (
     <aside className="copilot">
+      {props.header}
       {props.scan && (
         <section className="panel record">
           <h2>Research record</h2>
@@ -227,6 +246,11 @@ export function FindingsPanel(props: Props) {
                 <div style={{ width: `${(100 * (findings.length - toReview)) / findings.length}%` }} />
               </div>
             </div>
+            {toReview === 0 && approved.length > 0 && (
+              <div className="all-done" role="status">
+                <span aria-hidden="true">✓</span> All reviewed — {approved.length} accepted, ready to export.
+              </div>
+            )}
             <ul className="finding-list">
               {findings.map((f) => (
                 <li key={f.id}>
@@ -244,7 +268,18 @@ export function FindingsPanel(props: Props) {
                       {f.measurement ? `${fmt(f.measurement.longMm)} × ${fmt(f.measurement.shortMm)}` : '—'}
                     </span>
                     <span className={`chip chip--${f.status}`}>{STATUS_LABEL[f.status]}</span>
-                    {f.positionEstimate && <span className="finding-where">{f.positionEstimate}</span>}
+                    {(f.positionEstimate || props.lobeHints?.get(f.id)) && (
+                      <span className="finding-where">
+                        {f.lobe
+                          ? `${f.lobe}`
+                          : props.lobeHints?.get(f.id)
+                            ? `${props.lobeHints.get(f.id)?.lobe} (AI lobe map)`
+                            : f.positionEstimate}
+                        {f.match && f.measurement && f.match.prior.volumeMm3 ? (
+                          <DeltaChip now={f.measurement.volumeMm3} before={f.match.prior.volumeMm3} label={f.match.prior.timepoint} />
+                        ) : null}
+                      </span>
+                    )}
                     {f.status === 'approved' && missingFields(f).length > 0 && (
                       <span className="missing-note">missing {missingFields(f).join(', ')}</span>
                     )}
@@ -325,6 +360,20 @@ export function FindingsPanel(props: Props) {
             <div className="hint">Approved {new Date(selected.approved.at).toLocaleTimeString()}. Editing requires re-approval.</div>
           )}
 
+          {selected.status !== 'rejected' && selected.measurement && (
+            <FollowUpPanel
+              key={selected.id}
+              finding={selected}
+              priors={props.priors}
+              suggestion={props.suggestion}
+              patientId={props.scan?.patientId ?? ''}
+              onMatch={(prior, status) => props.onMatch(selected.id, prior, status)}
+              onClearMatch={() => props.onClearMatch(selected.id)}
+              onImport={props.onImport}
+              onGoToPriorPosition={props.onGoToPriorPosition}
+            />
+          )}
+
           <div className="review-actions">
             {selected.status !== 'approved' ? (
               <button
@@ -362,6 +411,32 @@ export function FindingsPanel(props: Props) {
             <ThresholdControl finding={selected} onResegment={props.onResegment} />
           )}
 
+          {props.typeHint && selected.type !== props.typeHint.suggestion && selected.status !== 'rejected' && (
+            <div className="type-hint">
+              <span className="muted">Suggested type (HU rule of thumb):</span> <b>{props.typeHint.suggestion}</b>{' '}
+              <span className="muted">
+                · mean {Math.round(props.typeHint.meanHu)} HU · {Math.round(props.typeHint.solidFraction * 100)}% solid
+              </span>
+              <button type="button" className="link" onClick={() => props.onFields(selected.id, { type: props.typeHint!.suggestion })}>
+                Apply
+              </button>
+            </div>
+          )}
+          {(() => {
+            const lh = props.lobeHints?.get(selected.id);
+            return lh && selected.lobe !== lh.lobe && selected.status !== 'rejected' ? (
+              <div className="type-hint">
+                <span className="muted">Suggested lobe ({props.lobeModel ?? 'AI'} lobe map):</span> <b>{lh.lobe}</b>{' '}
+                <span className="muted">· {Math.round(lh.fraction * 100)}% of the outline</span>
+                <button type="button" className="link" onClick={() => props.onFields(selected.id, { lobe: lh.lobe })}>
+                  Apply
+                </button>
+              </div>
+            ) : null;
+          })()}
+          {selected.status !== 'approved' && (props.typeHint || props.lobeHints?.get(selected.id)) && (!selected.type || !selected.lobe) && (
+            <div className="hint">Accept (A) fills empty Type/Lobe with these suggestions.</div>
+          )}
           <div className="fields">
             <label className={selected.type ? '' : 'missing'}>
               Type
@@ -397,19 +472,7 @@ export function FindingsPanel(props: Props) {
             </label>
           </div>
 
-          {selected.status !== 'rejected' && selected.measurement && (
-            <FollowUpPanel
-              key={selected.id}
-              finding={selected}
-              priors={props.priors}
-              suggestion={props.suggestion}
-              patientId={props.scan?.patientId ?? ''}
-              onMatch={(prior, status) => props.onMatch(selected.id, prior, status)}
-              onClearMatch={() => props.onClearMatch(selected.id)}
-              onImport={props.onImport}
-              onGoToPriorPosition={props.onGoToPriorPosition}
-            />
-          )}
+
 
           {selected.thumbnail && !selected.match && (
             <img className="thumb" src={selected.thumbnail} alt={`${selected.name} on the measured slice`} />

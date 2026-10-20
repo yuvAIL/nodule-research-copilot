@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   CUSTOM_LEFT_TOOLS,
   CtViewport,
@@ -21,6 +21,7 @@ import { nearestSlice, voxelToWorld, type Vec3 } from './measure/volume';
 import { FileLoader, type ResumeOffer } from './components/FileLoader';
 import { MetadataPanel } from './components/MetadataPanel';
 import { SessionSummary } from './components/SessionSummary';
+import { PatientTimeline } from './components/PatientTimeline';
 import { ReferencePanel, type AgreementView, type LoadedReference } from './components/ReferencePanel';
 import type { Labelmap } from './measure/labelmap';
 import { measureLabel } from './measure/measure';
@@ -43,6 +44,9 @@ import {
 } from './session/lastSession';
 import { downloadSample, fetchSampleFile, fetchSampleManifest } from './session/sampleData';
 import { candidatesFromSegments } from './ai/candidates';
+import { drawMip } from './viewer/mip';
+import { densityHint } from './measure/density';
+import { lobeHint, lobeSegments, type LobeHint, type LobeSegment } from './ai/lobes';
 
 type LoadStatus =
   | { kind: 'idle' }
@@ -97,6 +101,8 @@ export default function App() {
     setNoticeState(text === undefined ? undefined : { text, action });
   }, []);
   const [hideOverlays, setHideOverlays] = useState(false);
+  /** Thick-slab MIP display (search aid), slab thickness in mm; 0 = off. */
+  const [mipMm, setMipMm] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [exportedRows, setExportedRows] = useState(0);
@@ -118,10 +124,12 @@ export default function App() {
   const [referenceError, setReferenceError] = useState<string>();
   const [agreement, setAgreement] = useState<AgreementView>();
   const [showHelp, setShowHelp] = useState(false);
+  /** AI lobe map of the open series (TotalSegmentator lobe classes), used to suggest the Lobe. */
+  const [lobes, setLobes] = useState<{ seriesUid: string; segments: LobeSegment[]; model: string }>();
   /** DICOM SEG / RTSTRUCT files found in the opened folder (offered as AI result or expert outline). */
   const [segFiles, setSegFiles] = useState<{ file: File; path: string; description?: string; manufacturer?: string; modality: string }[]>([]);
-  /** AI result / expert outline that come with the public sample; imported once the 3D data is ready. */
-  const pendingSampleExtras = useRef<{ ai?: string; reference?: string } | undefined>(undefined);
+  /** AI results / expert outlines that come with the public sample; each is imported on the scan it belongs to. */
+  const sampleExtras = useRef<{ paths: string[]; cache: Map<string, File> } | undefined>(undefined);
   const [timepoints, setTimepoints] = useState<Record<string, string>>({});
   const [priors, setPriors] = useState<PriorRecord[]>([]);
   const [priorsVersion, setPriorsVersion] = useState(0);
@@ -131,13 +139,40 @@ export default function App() {
 
   const buildAbort = useRef<AbortController | undefined>(undefined);
 
+  // ── patient timeline: all scans of this patient in the opened data, oldest first ──
+  const dateOf = (x: CtSeries) => x.instances[0]?.studyDate ?? '';
+  const timeline = useMemo(() => {
+    if (!series) return [];
+    const pid = series.instances[0]?.patientId ?? '';
+    const date = (x: CtSeries) => x.instances[0]?.studyDate ?? '';
+    return allSeries
+      .filter((x) => (x.instances[0]?.patientId ?? '') === pid)
+      .sort((a, b) => date(a).localeCompare(date(b)) || (a.instances[0]?.seriesNumber ?? 0) - (b.instances[0]?.seriesNumber ?? 0));
+  }, [allSeries, series]);
+  /** Baseline for the earliest date, Follow-up n for later dates (unless the researcher chose otherwise). */
+  const autoTimepoint = (x: CtSeries): string => {
+    const dates = [...new Set(timeline.map(dateOf))];
+    const n = dates.indexOf(dateOf(x));
+    return n <= 0 ? 'Baseline' : `Follow-up ${Math.min(n, 4)}`;
+  };
+  const timepointOf = (x: CtSeries) => timepoints[x.seriesInstanceUid] ?? autoTimepoint(x);
+  const switchSeries = useCallback(
+    (uid: string) => {
+      if (uid === selectedUid) return;
+      setError(undefined);
+      setSelectedUid(uid);
+      setViewer({ index: 0, total: 0 });
+    },
+    [selectedUid],
+  );
+
   // ── research record ───────────────────────────────────────────
   const firstHeader = series?.instances[0];
   const scanInfo: ScanInfo | undefined = series
     ? {
         patientId: firstHeader?.patientId ?? '',
         studyDate: formatDicomDate(firstHeader?.studyDate) ?? '',
-        timepoint: timepoints[series.seriesInstanceUid] ?? 'Baseline',
+        timepoint: timepointOf(series),
         series: [firstHeader?.seriesNumber, firstHeader?.seriesDescription].filter((v) => v !== undefined && v !== '').join(' — '),
       }
     : undefined;
@@ -190,17 +225,19 @@ export default function App() {
 
   // An expert outline belongs to one series: drop it when another series (or scan) is opened.
   useEffect(() => {
+    setLobes((l) => (l && l.seriesUid !== seriesUid ? undefined : l));
     setReference((r) => (r && r.seriesUid !== seriesUid ? undefined : r));
     setReferenceError(undefined);
   }, [seriesUid]);
 
   const loadReference = useCallback(
-    async (file: File) => {
+    async (file: File, opts: { silent?: boolean } = {}) => {
       if (!store || !seriesUid) return;
       setReferenceError(undefined);
       try {
         const ref = parseReference(new Uint8Array(await file.arrayBuffer()));
         if (ref.referencedSeriesUid && ref.referencedSeriesUid !== seriesUid) {
+          if (opts.silent) return;
           setReferenceError(
             `This outline was drawn on another series (…${ref.referencedSeriesUid.slice(-12)}). Open that scan first — ` +
               'outlines are only compared on the scan they were drawn on.',
@@ -242,15 +279,23 @@ export default function App() {
   );
 
   const loadAi = useCallback(
-    async (file: File) => {
+    async (file: File, opts: { silent?: boolean } = {}) => {
       if (!store || !seriesUid) return;
       try {
         const ref = parseReference(new Uint8Array(await file.arrayBuffer()));
         if (ref.referencedSeriesUid && ref.referencedSeriesUid !== seriesUid) {
+          if (opts.silent) return;
           setNotice('This AI result was computed on another series. Open that scan first.');
           return;
         }
         const raster = rasterizeReference(ref, store.volume);
+        const lobeMap = lobeSegments(raster.segments);
+        if (lobeMap) {
+          const model = [ref.manufacturer ?? ref.modelName ?? 'AI model', ref.softwareVersion].filter(Boolean).join(' ');
+          setLobes({ seriesUid, segments: lobeMap, model });
+          if (!opts.silent) setNotice(`Lobe map loaded (${model}) — each finding now gets a suggested lobe.`);
+          return;
+        }
         const set = candidatesFromSegments(raster.segments, store.volume);
         if (!set) {
           setNotice('The AI result has no nodule segment on this series.');
@@ -268,7 +313,9 @@ export default function App() {
           setNotice(`AI found ${set.candidates.length} candidate${set.candidates.length === 1 ? '' : 's'}${tiny}. Review: A accept · R reject · J/K next/previous.`);
           const first = store.get(r.firstId);
           if (first) goToFinding(first);
-        } else if (r.skipped) setNotice('This AI result is already in the worklist.');
+        } else if (r.skipped) {
+          if (!opts.silent) setNotice('This AI result is already in the worklist.');
+        }
         else setNotice(`The AI found no nodule candidates on this scan${tiny}.`);
       } catch (e) {
         setNotice(`Could not read the AI result ${file.name}: ${errorText(e)}`);
@@ -277,24 +324,43 @@ export default function App() {
     [store, seriesUid, goToFinding, setNotice],
   );
 
-  // Public sample: bring in its precomputed AI result and expert outline once the 3D data is ready.
+  // Public sample: bring in the precomputed AI result and expert outline of whichever scan is open.
+  const importSampleExtras = useCallback(async () => {
+    const extras = sampleExtras.current;
+    if (!extras) return;
+    try {
+      for (const path of extras.paths) {
+        let file = extras.cache.get(path);
+        if (!file) {
+          file = await fetchSampleFile(path);
+          extras.cache.set(path, file);
+        }
+        if (/reference/i.test(path)) await loadReference(file, { silent: true });
+        else await loadAi(file, { silent: true });
+      }
+    } catch (e) {
+      setNotice(`Sample extras unavailable: ${errorText(e)}`);
+    }
+  }, [loadAi, loadReference, setNotice]);
+
   useEffect(() => {
-    const extras = pendingSampleExtras.current;
-    if (!store || !extras) return;
-    pendingSampleExtras.current = undefined;
+    if (store) void importSampleExtras();
+  }, [store, importSampleExtras]);
+
+  // AI results inside an opened folder (e.g. written by scripts/run-ai.sh) are imported automatically
+  // on the scan they belong to. Expert outlines are only loaded on request.
+  useEffect(() => {
+    if (!store) return;
     void (async () => {
-      try {
-        if (extras.reference) await loadReference(await fetchSampleFile(extras.reference));
-        if (extras.ai) await loadAi(await fetchSampleFile(extras.ai));
-      } catch (e) {
-        setNotice(`Sample extras unavailable: ${errorText(e)}`);
+      for (const f of segFiles) {
+        if (f.modality === 'SEG' && /totalsegmentator/i.test(f.manufacturer ?? '')) await loadAi(f.file, { silent: true });
       }
     })();
-  }, [store, loadAi, loadReference, setNotice]);
+  }, [store, segFiles, loadAi]);
 
   useEffect(() => {
     viewerRef.current?.redrawAnnotations();
-  }, [reference, showReference, hideOverlays]);
+  }, [reference, showReference, hideOverlays, mipMm]);
 
   // Agreement of the selected finding with the expert outline (debounced: it scans the voxels).
   useEffect(() => {
@@ -399,6 +465,24 @@ export default function App() {
   };
 
   const suggestion = selectedFinding ? suggestMatch(priors, centroidWorld(selectedFinding)) : undefined;
+  const lobeHints = useMemo(() => {
+    const out = new Map<string, LobeHint>();
+    if (!store || !lobes || lobes.seriesUid !== seriesUid) return out;
+    for (const f of snap.findings) {
+      if (!f.measurement) continue;
+      const h = lobeHint(store.labelmap, f.label, f.kMin, f.kMax, lobes.segments);
+      if (h) out.set(f.id, h);
+    }
+    return out;
+  }, [store, lobes, seriesUid, snap.findings]);
+  const typeHint = useMemo(
+    () =>
+      store && selectedFinding?.measurement
+        ? densityHint(store.volume.hu, store.labelmap, selectedFinding.label, selectedFinding.kMin, selectedFinding.kMax)
+        : undefined,
+    // Recompute when the outline changes (measurement object changes on every edit).
+    [store, selectedFinding?.measurement, selectedFinding?.label, selectedFinding?.kMin, selectedFinding?.kMax],
+  );
 
   /** Shows the finding's measured slice, then calls back once it has rendered. */
   const withFindingSlice = (f: Finding, then: () => void) => {
@@ -417,6 +501,25 @@ export default function App() {
     const f = store.get(id);
     if (!f?.measurement) return;
     store.approve(id);
+    // Fill empty Type / Lobe from the suggestions; the researcher can change them at any time.
+    const filled: string[] = [];
+    const patch: Partial<Pick<Finding, 'type' | 'lobe'>> = {};
+    if (!f.type) {
+      const t = densityHint(store.volume.hu, store.labelmap, f.label, f.kMin, f.kMax);
+      if (t) {
+        patch.type = t.suggestion;
+        filled.push(`Type ${t.suggestion}`);
+      }
+    }
+    const lh = lobeHints.get(id);
+    if (!f.lobe && lh) {
+      patch.lobe = lh.lobe;
+      filled.push(`Lobe ${lh.lobe}`);
+    }
+    if (filled.length) {
+      store.setFields(id, patch);
+      setNotice(`${f.name} accepted · ${filled.join(', ')} filled from suggestions — change any time.`);
+    }
     // Keep a small picture of the measured slice for the record and later follow-up comparison.
     withFindingSlice(f, () => {
       const thumb = viewerRef.current?.capture({ maxWidth: 360, type: 'image/jpeg', quality: 0.8 });
@@ -510,6 +613,7 @@ export default function App() {
       if (!store) return;
       const brushing = leftTool === 'brush' || leftTool === 'erase';
       const cursor = brushCursor.current;
+      if (mipMm > 0 && viewer.voi) drawMip(ctx, view, store.volume, mipMm, viewer.voi);
       if (hideOverlays) return;
       drawAnnotations(ctx, view, {
         labelmap: store.labelmap,
@@ -522,7 +626,7 @@ export default function App() {
             : undefined,
       });
     },
-    [store, snap, leftTool, brushRadiusMm, reference, showReference, hideOverlays],
+    [store, snap, leftTool, brushRadiusMm, reference, showReference, hideOverlays, mipMm, viewer.voi],
   );
 
   const onPointer = useCallback(
@@ -607,6 +711,22 @@ export default function App() {
         setShowHelp(false);
         setShowSummary(false);
       }
+      if ((e.key === ',' || e.key === '.') && series && timeline.length > 1) {
+        const at = timeline.findIndex((x) => x.seriesInstanceUid === series.seriesInstanceUid);
+        const next = timeline[(at + (e.key === '.' ? 1 : -1) + timeline.length) % timeline.length];
+        if (next) switchSeries(next.seriesInstanceUid);
+        return;
+      }
+      const lower = e.key.toLowerCase();
+      if (lower === 't' && series) {
+        setMipMm((v) => (v === 0 ? 10 : v === 10 ? 20 : 0));
+        return;
+      }
+      if (lower === 'm' && store && id && suggestion && !store.get(id)?.match) {
+        store.setMatch(id, { status: 'Confident', prior: suggestion.prior, at: Date.now() }, suggestion.prior.noduleId);
+        setNotice(`${store.get(id)?.name ?? 'Finding'} matched to ${suggestion.prior.noduleId} (${suggestion.prior.timepoint}) — change shown in the worklist.`);
+        return;
+      }
       if (e.key === ' ' && series) {
         e.preventDefault();
         setHideOverlays((v) => !v);
@@ -659,7 +779,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [store, snap, series, brushRadiusMm, goToFinding]);
+  }, [store, snap, series, brushRadiusMm, goToFinding, timeline, switchSeries, suggestion, setNotice]);
 
   // On start-up: offer to continue the previous session, and check whether a sample CT is deployed.
   useEffect(() => {
@@ -681,6 +801,7 @@ export default function App() {
         return;
       }
       setError(undefined);
+      if (newSource.kind !== 'sample') sampleExtras.current = undefined;
       const { candidates, skipped: preSkipped } = preFilter(files);
       setStatus({ kind: 'reading', progress: { done: 0, total: candidates.length } });
 
@@ -752,7 +873,9 @@ export default function App() {
         if (!manifest) throw new Error('No sample CT is deployed with this build.');
         setStatus({ kind: 'downloading', done: 0, total: manifest.files.length });
         const files = await downloadSample(manifest, (done, total) => setStatus({ kind: 'downloading', done, total }));
-        pendingSampleExtras.current = manifest.ai || manifest.reference ? { ai: manifest.ai, reference: manifest.reference } : undefined;
+        const list = (v: string | string[] | undefined) => (v === undefined ? [] : Array.isArray(v) ? v : [v]);
+        const paths = [...list(manifest.reference), ...list(manifest.ai)];
+        sampleExtras.current = paths.length ? { paths, cache: new Map() } : undefined;
         await loadFiles(files, { kind: 'sample' }, restore);
       } catch (e) {
         setStatus({ kind: 'idle' });
@@ -859,6 +982,16 @@ export default function App() {
       </div>
       <div className="overlay overlay--bl">Research use only — not for diagnosis</div>
       {hideOverlays && <div className="overlay overlay--center">Outlines hidden — press Space to show</div>}
+      {series && (
+        <button
+          type="button"
+          className={`mip-toggle${mipMm ? ' mip-toggle--on' : ''}`}
+          onClick={() => setMipMm((v) => (v === 0 ? 10 : v === 10 ? 20 : 0))}
+          title="Thick-slab maximum intensity projection: nodules stay round, vessels become lines. Display only — measurements use the original slices. (T cycles 10 mm → 20 mm → off)"
+        >
+          {mipMm ? `MIP slab ${mipMm} mm` : 'Thick slab (MIP)'} <kbd>T</kbd>
+        </button>
+      )}
       <div className="overlay overlay--br">Wheel/↑↓ slice · middle-drag pan · right-drag zoom</div>
       {notice && (
         <div className="viewport-notice" role="status">
@@ -912,12 +1045,8 @@ export default function App() {
             store.clearAll();
             setExportedRows(0);
             setShowSummary(false);
-            if (source?.kind === 'sample') {
-              pendingSampleExtras.current = undefined;
-              void (async () => {
-                const manifest = await fetchSampleManifest();
-                if (manifest?.ai) await loadAi(await fetchSampleFile(manifest.ai));
-              })();
+            if (source?.kind === 'sample' && sampleExtras.current) {
+              void importSampleExtras();
             } else {
               setNotice('All findings deleted. Load the AI result again (Worklist → Load AI result…) to start a timed run.');
             }
@@ -950,6 +1079,12 @@ export default function App() {
               <dd><kbd>W</kbd> <kbd>P</kbd> <kbd>Z</kbd></dd>
               <dt>Scroll slices</dt>
               <dd>wheel · <kbd>↑</kbd> <kbd>↓</kbd></dd>
+              <dt>Previous / next scan of this patient</dt>
+              <dd><kbd>,</kbd> <kbd>.</kbd></dd>
+              <dt>Thick-slab MIP to spot nodules (10 → 20 mm → off)</dt>
+              <dd><kbd>T</kbd></dd>
+              <dt>Same nodule as the suggested earlier one</dt>
+              <dd><kbd>M</kbd></dd>
               <dt>Hide / show outlines</dt>
               <dd><kbd>Space</kbd></dd>
               <dt>Close / deselect</dt>
@@ -1162,6 +1297,17 @@ export default function App() {
       </main>
 
       <FindingsPanel
+        header={
+          series && (
+            <PatientTimeline
+              patientId={scanInfo?.patientId ?? ''}
+              scans={timeline}
+              currentUid={series.seriesInstanceUid}
+              timepointOf={timepointOf}
+              onOpen={switchSeries}
+            />
+          )
+        }
         scan={scanInfo}
         onTimepoint={setTimepoint}
         onExport={exportCsv}
@@ -1189,6 +1335,9 @@ export default function App() {
         onClearMatch={(id) => store?.setMatch(id, undefined)}
         onImport={(file) => void importSheet(file)}
         onLoadAi={(file) => void loadAi(file)}
+        typeHint={typeHint}
+        lobeHints={lobeHints}
+        lobeModel={lobes?.model}
         onGoToPriorPosition={(prior) => {
           if (store && prior.centroidWorld) viewerRef.current?.goToSlice(nearestSlice(store.volume, prior.centroidWorld));
         }}

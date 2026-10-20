@@ -18,10 +18,10 @@ export interface SampleManifest {
   title: string;
   attribution: string;
   files: string[];
-  /** Optional AI result for the sample (DICOM SEG, computed offline), loaded as AI candidates. */
-  ai?: string;
-  /** Optional expert outline for the sample (DICOM SEG/RTSTRUCT), loaded as the expert reference. */
-  reference?: string;
+  /** Optional AI results (DICOM SEG, computed offline), each imported on the scan it was computed on. */
+  ai?: string | string[];
+  /** Optional expert outlines (DICOM SEG/RTSTRUCT), shown on the scan they were drawn on. */
+  reference?: string | string[];
 }
 
 const PARALLEL_DOWNLOADS = 8;

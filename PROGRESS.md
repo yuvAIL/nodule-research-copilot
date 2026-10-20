@@ -3,7 +3,22 @@
 Deadline (own target): **Wed 21 Oct 2026, 18:00 (IL)**. Full brief: `docs/MISSION.md`.
 Live: **https://nodule-research-copilot.pages.dev** (Cloudflare Pages, static).
 
-## Review UX + Naomi's view — Tue 20 Oct, 15:35 ✅ (deploy pending)
+## Faster review — Tue 20 Oct, 17:00 ✅ (deploy pending)
+
+**BUILT** — Patient timeline (all scans of the patient, Baseline/Follow-up from dates, `,`/`.` to switch); sample =
+baseline 2006-09-05 + follow-up 2006-09-20 with AI on both; follow-up comparison moved to the top of the card; **M**
+confirms the suggested same-nodule match; ▲/▼ % change in the worklist; "All reviewed" banner; **T** thick-slab MIP
+(10/20 mm) computed in the browser; Type suggestion from HU; Lobe suggestion from an AI lobe map (TotalSegmentator
+`total` lobe classes); Accept fills empty Type/Lobe from suggestions; `scripts/run-ai.sh` (nodules + lobes per scan
+folder) and automatic import of TotalSegmentator SEGs found in an opened folder.
+**VERIFIED** — tsc + ESLint on the Mac; harness tests (MIP, density, lobes); in the browser: baseline review → `.` →
+follow-up suggestion "Same nodule as N1 (Baseline)" → M → "▼ 45% vs Baseline"; MIP renders vessels as lines; type hint
+"solid · mean 14 HU · 96% solid".
+**AI ON ALL 59 SCANS** — 53/59 hits (90 %), Dice 0.76 [0.59–0.86], |Δlong| 5.5 mm; misses in 4 patients (docs/EVALUATION.md).
+**ASSUMPTIONS** — Daniel is not contacted again unless blocked (no blocker): candidate size filter = 5 mm³ (noise
+only); time-model "before" = his self-reported numbers.
+
+## Review UX + Naomi's view — Tue 20 Oct, 15:35 ✅ (deployed)
 
 **BUILT** — Reject shows a toast with **Undo**; Export shows "Exported N rows → file"; **Space** hides/shows all
 outlines; **Session summary** (AI candidates / accepted / rejected / edited / added by researcher, active time on

@@ -26,6 +26,9 @@ repeatability, AI result, failure modes, and how time saved is measured.
 | Step | In the app |
 | --- | --- |
 | Review AI candidates | **Load AI result…** (a DICOM SEG from TotalSegmentator `lung_nodules`, run offline) or a SEG file inside the opened folder. Each connected piece becomes a candidate *to review*, labelled with the model, version and run date. A/R/J/K review; nothing is exported until accepted. |
+| Search faster | **T** toggles a thick-slab **MIP** (10 → 20 mm → off): nodules stay round bright blobs, vessels become lines — the radiologist's way to check for missed nodules without reading every slice. Display only. |
+| Fill the sheet | On **Accept**, empty Type and Lobe are filled from suggestions: Type from the outline's HU (solid / part-solid / ground-glass / calcified, rule of thumb) and Lobe from the AI lobe map. Shown as suggestions; one click to change. |
+| Follow-up | A **patient timeline** lists every scan of the patient (Baseline / Follow-up n from the dates); **,** / **.** switch scans. On a follow-up, the same nodule on the earlier scan is suggested; **M** confirms it and the worklist shows ▲/▼ % change. |
 | Open a scan | **Open CT folder…** / **Open files…** / drag a folder in, or **Load sample CT**. Series are grouped and ordered by 3-D position; gaps and duplicates are flagged. After a reload (⌘R) the last scan reopens at the same slice. |
 | Measure | **Click nodule (S)** → click inside the nodule. A classical (non-AI) region-grow builds a 3-D outline and computes RECIST-style long/short axes on the slice where the nodule is largest, plus volume. |
 | Correct | **Brush (B)** / **Erase (E)**, size `[` `]`, optional 3-D sphere brush, **Undo (⌘Z)**, **Reset**, threshold slider + re-segment. Edited findings are labelled “edited by researcher”. |
@@ -74,6 +77,19 @@ the NCI Imaging Data Commons. DICOM files are **not** in this repository.
   images.* Radiology: Artificial Intelligence 2023. <https://doi.org/10.1148/ryai.230024> (Apache-2.0).
 
 ---
+
+## Use it on your own scans (AI included)
+
+1. Export the CT series to a folder (DICOM files).
+2. Run the AI once per scan, on the same computer (nothing is uploaded):
+   ```bash
+   pip install TotalSegmentator highdicom
+   scripts/run-ai.sh /path/to/patient/scan-folder [/path/to/another/scan ...]
+   ```
+   This writes `<scan>_ai/ai-lung-nodules.dcm` and `ai-lung-lobes.dcm` next to each scan (~2–5 min per scan on an
+   Apple Silicon Mac; `DEVICE=cpu` elsewhere).
+3. In the app, **Open CT folder…** and choose the **patient folder** (the one containing the scans and their `_ai`
+   folders). Every scan appears on the patient timeline; AI candidates and lobes load automatically.
 
 ## Run it locally
 
@@ -139,7 +155,8 @@ src/
 
 ## Known limitations
 
-- **AI accuracy is shown on N = 1 scan so far** (Dice 0.87 vs expert); the 59-scan run is in progress.
+- **The AI misses ~1 tumour in 10** (53/59 scans found; Dice 0.76 vs expert) and some scans get many small
+  unconfirmed candidates — every candidate is reviewed by the researcher, and missed ones are added with one click.
 - **Click segmentation is classical, not AI**, and is the fallback: about one click in three fails (Dice < 0.2) on the
   RIDER cohort, mostly on lesions touching the chest wall. It is tuned for solid nodules. On large masses touching the hilum
   the outline can follow hilar structures on some slices and needs manual erasing. Ground-glass nodules need a

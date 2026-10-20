@@ -124,7 +124,7 @@ export function FollowUpPanel({ finding, priors, suggestion, patientId, onMatch,
             candidate && (
               <div className="match-row">
                 <button type="button" className="primary" onClick={() => onMatch(candidate, 'Confident')}>
-                  Same nodule — Confident
+                  Same nodule — Confident <kbd>M</kbd>
                 </button>
                 <button type="button" onClick={() => onMatch(candidate, 'Uncertain')}>
                   Uncertain
