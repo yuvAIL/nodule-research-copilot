@@ -16,6 +16,8 @@ export interface AnnotationScene {
   findings: Finding[];
   selectedId?: string;
   brush?: { x: number; y: number; radiusMm: number; erase: boolean };
+  /** Text appended to a finding's tag, e.g. " ▼45%" (change vs the earlier scan). */
+  tagSuffix?: Map<string, string>;
   /** Read-only expert outline, drawn as a dotted magenta edge (never editable). */
   reference?: { labelmap: Labelmap; names: string[] };
 }
@@ -154,12 +156,18 @@ export function drawAnnotations(ctx: CanvasRenderingContext2D, view: ViewMapper,
         const end = view.voxelToCanvas(m.longAxis[1][0], m.longAxis[1][1]);
         const start = view.voxelToCanvas(m.longAxis[0][0], m.longAxis[0][1]);
         const anchor = end[0] >= start[0] ? end : start;
-        drawTag(ctx, anchor[0] + 8, anchor[1], `${f.name}  ${m.longMm.toFixed(1)} × ${m.shortMm.toFixed(1)} mm`, color);
+        drawTag(
+          ctx,
+          anchor[0] + 8,
+          anchor[1],
+          `${f.name}  ${m.longMm.toFixed(1)} × ${m.shortMm.toFixed(1)} mm${scene.tagSuffix?.get(f.id) ?? ''}`,
+          color,
+        );
       } else {
         const top = tagAt.get(f.label);
         if (top) {
           const p = view.voxelToCanvas(top[0], top[1]);
-          drawTag(ctx, p[0] + 6, p[1] - 6, f.name, color);
+          drawTag(ctx, p[0] + 6, p[1] - 6, `${f.name}${scene.tagSuffix?.get(f.id) ?? ''}`, color);
         }
       }
     }

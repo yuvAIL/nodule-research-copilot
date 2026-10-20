@@ -48,6 +48,11 @@ interface Props {
   typeHint?: { suggestion: NoduleType; meanHu: number; solidFraction: number };
   /** Lobe suggested from the AI lobe map, per finding id. */
   lobeHints?: Map<string, { lobe: Lobe; fraction: number }>;
+  /** Linked CSV that fills itself (undefined when the browser cannot write files). */
+  liveSheet?: { name?: string; rows: number; savedAt?: number; needsPermission?: boolean; error?: string };
+  onLinkSheet: () => void;
+  /** Change vs the earlier scan per finding: confirmed match, or suggested pair. */
+  changes?: Map<string, { text: string; dir: 'up' | 'down' | 'same'; vs: string; confirmed: boolean }>;
   lobeModel?: string;
 }
 
@@ -72,17 +77,6 @@ function SourceChip({ f }: { f: Finding }) {
   return (
     <span className="chip chip--you" title={f.source === 'click' ? 'Added by you (click segmentation)' : 'Added by you (brush)'}>
       You
-    </span>
-  );
-}
-
-/** Volume change vs the matched earlier scan, with arrow and words (never colour alone). */
-function DeltaChip({ now, before, label }: { now: number; before: number; label: string }) {
-  const pct = ((now - before) / before) * 100;
-  const dir = Math.abs(pct) < 0.5 ? 'same' : pct > 0 ? 'up' : 'down';
-  return (
-    <span className={`delta-chip delta-chip--${dir}`} title={`Volume vs ${label}`}>
-      {dir === 'up' ? '▲' : dir === 'down' ? '▼' : '='} {Math.abs(pct).toFixed(0)}% vs {label}
     </span>
   );
 }
@@ -173,6 +167,41 @@ export function FindingsPanel(props: Props) {
               </dd>
             </div>
           </dl>
+          {props.liveSheet && (
+            <div className={`live-sheet${props.liveSheet.name && !props.liveSheet.needsPermission ? ' live-sheet--on' : ''}`}>
+              {!props.liveSheet.name ? (
+                <>
+                  <span>
+                    <b>Sheet fills itself:</b> link a CSV once, every accepted nodule is written to it.
+                  </span>
+                  <button type="button" className="ghost small" onClick={props.onLinkSheet}>
+                    Link sheet…
+                  </button>
+                </>
+              ) : props.liveSheet.needsPermission ? (
+                <>
+                  <span>
+                    Sheet <b>{props.liveSheet.name}</b> — paused after reload.
+                  </span>
+                  <button type="button" className="ghost small" onClick={props.onLinkSheet}>
+                    Resume writing
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span>
+                    <span className="live-dot" aria-hidden="true" /> Writing to <b>{props.liveSheet.name}</b> · {props.liveSheet.rows} row
+                    {props.liveSheet.rows === 1 ? '' : 's'}
+                    {props.liveSheet.savedAt ? ` · saved ${new Date(props.liveSheet.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  </span>
+                  <button type="button" className="link" onClick={props.onLinkSheet}>
+                    change
+                  </button>
+                </>
+              )}
+              {props.liveSheet.error && <span className="reference-error">{props.liveSheet.error}</span>}
+            </div>
+          )}
           <div className="export-row">
             <button type="button" className="primary" disabled={approved.length === 0} onClick={props.onExport}>
               Export CSV ({approved.length})
@@ -268,16 +297,26 @@ export function FindingsPanel(props: Props) {
                       {f.measurement ? `${fmt(f.measurement.longMm)} × ${fmt(f.measurement.shortMm)}` : '—'}
                     </span>
                     <span className={`chip chip--${f.status}`}>{STATUS_LABEL[f.status]}</span>
-                    {(f.positionEstimate || props.lobeHints?.get(f.id)) && (
+                    {(f.positionEstimate || props.lobeHints?.get(f.id) || props.changes?.get(f.id)) && (
                       <span className="finding-where">
                         {f.lobe
                           ? `${f.lobe}`
                           : props.lobeHints?.get(f.id)
                             ? `${props.lobeHints.get(f.id)?.lobe} (AI lobe map)`
                             : f.positionEstimate}
-                        {f.match && f.measurement && f.match.prior.volumeMm3 ? (
-                          <DeltaChip now={f.measurement.volumeMm3} before={f.match.prior.volumeMm3} label={f.match.prior.timepoint} />
-                        ) : null}
+                        {(() => {
+                          const c = props.changes?.get(f.id);
+                          return c ? (
+                            <span
+                              className={`delta-chip delta-chip--${c.dir}${c.confirmed ? '' : ' delta-chip--suggested'}`}
+                              title={c.confirmed ? `Volume vs ${c.vs} (confirmed same nodule)` : `Suggested pair: ${c.vs} — A or M confirms`}
+                            >
+                              {c.confirmed ? '' : '↔ '}
+                              {c.text} vs {c.vs}
+                              {c.confirmed ? '' : '?'}
+                            </span>
+                          ) : null;
+                        })()}
                       </span>
                     )}
                     {f.status === 'approved' && missingFields(f).length > 0 && (

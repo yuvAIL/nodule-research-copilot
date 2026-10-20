@@ -1775,3 +1775,46 @@ button.danger {
 .type-hint .link {
   margin-left: 6px;
 }
+
+.delta-chip--suggested {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+/* live sheet */
+.live-sheet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  margin: 10px 0 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 12px;
+  border: 1px dashed #2f3a46;
+  background: #10151b;
+}
+
+.live-sheet--on {
+  border-style: solid;
+  border-color: rgba(76, 195, 138, 0.35);
+  background: var(--ok-soft);
+}
+
+.live-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 3px rgba(76, 195, 138, 0.18);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 0 5px rgba(76, 195, 138, 0.05);
+  }
+}

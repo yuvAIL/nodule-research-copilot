@@ -84,6 +84,52 @@ export function suggestMatch(
   return best;
 }
 
+/** Default: an earlier nodule further away than this (mm, patient coordinates) is not suggested. */
+export const MAX_PAIR_DISTANCE_MM = 50;
+
+/**
+ * Pairs every current finding with its most likely earlier self, one-to-one, closest pairs first.
+ * Only priors from an earlier date are used. Positions come from patient coordinates of two separate
+ * scans (breathing / positioning shift), so a pair is a suggestion the researcher confirms.
+ */
+export function pairFindings(
+  current: { id: string; centroidWorld?: [number, number, number] }[],
+  priors: PriorRecord[],
+  currentDate: string,
+  maxDistanceMm = MAX_PAIR_DISTANCE_MM,
+): Map<string, { prior: PriorRecord; distanceMm: number }> {
+  const earlier = priors.filter((p) => p.centroidWorld && (!currentDate || !p.date || p.date < currentDate));
+  const pairs: { id: string; prior: PriorRecord; distanceMm: number }[] = [];
+  for (const c of current) {
+    if (!c.centroidWorld) continue;
+    for (const p of earlier) {
+      const w = p.centroidWorld as [number, number, number];
+      const d = Math.hypot(w[0] - c.centroidWorld[0], w[1] - c.centroidWorld[1], w[2] - c.centroidWorld[2]);
+      if (d <= maxDistanceMm) pairs.push({ id: c.id, prior: p, distanceMm: d });
+    }
+  }
+  pairs.sort((a, b) => a.distanceMm - b.distanceMm);
+  const out = new Map<string, { prior: PriorRecord; distanceMm: number }>();
+  const used = new Set<string>();
+  for (const pr of pairs) {
+    if (out.has(pr.id) || used.has(pr.prior.key)) continue;
+    out.set(pr.id, { prior: pr.prior, distanceMm: pr.distanceMm });
+    used.add(pr.prior.key);
+  }
+  return out;
+}
+
+/** "▼ 45%" style volume change (falls back to long axis), or undefined when not comparable. */
+export function changeLabel(prior: PriorRecord, now: { volumeMm3?: number; longMm?: number }): { text: string; dir: 'up' | 'down' | 'same' } | undefined {
+  const pair =
+    prior.volumeMm3 && now.volumeMm3 ? [prior.volumeMm3, now.volumeMm3] : prior.longMm && now.longMm ? [prior.longMm, now.longMm] : undefined;
+  if (!pair) return undefined;
+  const [before, after] = pair as [number, number];
+  const pct = ((after - before) / before) * 100;
+  const dir = Math.abs(pct) < 0.5 ? 'same' : pct > 0 ? 'up' : 'down';
+  return { text: `${dir === 'up' ? '▲' : dir === 'down' ? '▼' : '='}${Math.abs(pct).toFixed(0)}%`, dir };
+}
+
 // ── spreadsheet import ─────────────────────────────────────────
 
 type Field = 'patientId' | 'date' | 'timepoint' | 'series' | 'noduleId' | 'type' | 'lobe' | 'long' | 'short' | 'volume' | 'notes';

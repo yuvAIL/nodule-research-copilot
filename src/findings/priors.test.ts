@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compare, importSpreadsheet, suggestMatch, type PriorRecord } from './priors';
+import { changeLabel, compare, importSpreadsheet, pairFindings, suggestMatch, type PriorRecord } from './priors';
 
 const prior = (over: Partial<PriorRecord>): PriorRecord => ({
   key: 'k',
@@ -50,5 +50,40 @@ describe('spreadsheet import', () => {
     expect(r.records[1]?.volumeMm3).toBeUndefined();
     expect(r.mapped.long).toBe('Long Diameter');
     expect(r.mapped.volume).toBe('Volume');
+  });
+});
+
+describe('pairFindings', () => {
+  const at = (key: string, at: [number, number, number], date = '2006-09-05', volumeMm3 = 1000): PriorRecord => ({
+    key,
+    source: 'app',
+    patientId: 'P',
+    timepoint: 'Baseline',
+    date,
+    series: '1',
+    noduleId: key,
+    centroidWorld: at,
+    volumeMm3,
+  });
+
+  it('pairs one-to-one, closest first, earlier dates only, within the distance limit', () => {
+    const priors = [at('A', [0, 0, 0]), at('B', [30, 0, 0]), at('LATER', [1, 0, 0], '2006-10-01')];
+    const pairs = pairFindings(
+      [
+        { id: 'n1', centroidWorld: [2, 0, 0] },
+        { id: 'n2', centroidWorld: [5, 0, 0] },
+        { id: 'far', centroidWorld: [200, 0, 0] },
+      ],
+      priors,
+      '2006-09-20',
+    );
+    expect(pairs.get('n1')?.prior.key).toBe('A');
+    expect(pairs.get('n2')?.prior.key).toBe('B');
+    expect(pairs.has('far')).toBe(false);
+  });
+
+  it('labels the change with an arrow', () => {
+    expect(changeLabel(at('A', [0, 0, 0]), { volumeMm3: 550 })).toEqual({ text: '▼45%', dir: 'down' });
+    expect(changeLabel(at('A', [0, 0, 0]), { volumeMm3: 1200 })).toEqual({ text: '▲20%', dir: 'up' });
   });
 });

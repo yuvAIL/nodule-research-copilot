@@ -25,12 +25,14 @@
 
 ## 2:15 — Follow-up in one key
 - **.** → the 2006-09-20 scan opens as *Follow-up 1*, AI candidates already there.
-- Card: *"Same nodule as N1 (Baseline)?"* → **M** → worklist shows **▼ 45 % vs Baseline**.
+- Worklist already shows **↔ ▼45 % vs Baseline?** — every nodule was paired with its earlier self automatically.
+- **A** → accepted *and* paired, Type/Lobe filled: *"review, adjust, confirm" — Daniel's words.*
 - Say: *"Remember the test–retest result: even two scans 15 minutes apart differ by 10–17 % in volume, so a 45 % drop
   is real, a 10 % change is not."*
 
 ## 3:00 — The sheet fills itself
-- **Export CSV** → open in Excel: Daniel's 13 columns + where every number came from (AI model and version, edited or not,
+- Point at **"● Writing to nodule-measurements.csv · 2 rows"** (linked before the call) — no export step.
+- Open the file in Excel: Daniel's 13 columns + where every number came from (AI model and version, edited or not,
   measured slice, approval time).
 - **Session summary**: AI candidates / accepted / rejected / added by researcher / time on this scan.
 

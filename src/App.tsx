@@ -13,10 +13,10 @@ import { BRUSH_SIZES_MM } from './components/Toolbar';
 import { buildVolume } from './cornerstone/volumeData';
 import { FindingsStore, type StoreSnapshot } from './findings/store';
 import type { Finding } from './findings/types';
-import { downloadDataUrl, downloadText, screenshotName, toCsv, toRow, type ScanInfo } from './findings/record';
+import { downloadDataUrl, downloadText, screenshotName, toCsv, toRow, type ResearchRow, type ScanInfo } from './findings/record';
 import { formatDicomDate } from './dicom/headerMapping';
 import { idbGet, idbSet } from './session/idb';
-import { importSpreadsheet, suggestMatch, type PriorRecord } from './findings/priors';
+import { changeLabel, importSpreadsheet, pairFindings, type PriorRecord } from './findings/priors';
 import { nearestSlice, voxelToWorld, type Vec3 } from './measure/volume';
 import { FileLoader, type ResumeOffer } from './components/FileLoader';
 import { MetadataPanel } from './components/MetadataPanel';
@@ -45,6 +45,7 @@ import {
 import { downloadSample, fetchSampleFile, fetchSampleManifest } from './session/sampleData';
 import { candidatesFromSegments } from './ai/candidates';
 import { drawMip } from './viewer/mip';
+import { loadSheet, pickSheet, requestSheetPermission, sheetPermission, supportsLiveSheet, writeSheet, type SheetHandle } from './session/liveSheet';
 import { densityHint } from './measure/density';
 import { lobeHint, lobeSegments, type LobeHint, type LobeSegment } from './ai/lobes';
 
@@ -106,6 +107,12 @@ export default function App() {
   const [showSummary, setShowSummary] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [exportedRows, setExportedRows] = useState(0);
+  /** Linked CSV file that is rewritten after every change ("the sheet fills itself"). */
+  const [sheet, setSheet] = useState<{ handle: SheetHandle; rows: number; savedAt?: number; needsPermission?: boolean; error?: string }>();
+  const sheetRef = useRef(sheet);
+  useEffect(() => {
+    sheetRef.current = sheet;
+  });
   const brushCursor = useRef<{ x: number; y: number } | undefined>(undefined);
   const lastPaint = useRef<{ i: number; j: number; k: number } | undefined>(undefined);
   const snap = useSyncExternalStore(store?.subscribe ?? noopSubscribe, store?.getSnapshot ?? emptySnapshot);
@@ -389,6 +396,45 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [reference, store, selectedFinding]);
 
+  /** Rewrites the linked sheet with every approved row of every scan measured in this browser. */
+  const syncSheet = useCallback(async () => {
+    const current = sheetRef.current;
+    if (!current) return;
+    try {
+      const uids = (await idbGet<string[]>('sheet-series')) ?? [];
+      const rows: ResearchRow[] = [];
+      for (const uid of uids) rows.push(...((await idbGet<ResearchRow[]>(`rows:${uid}`)) ?? []));
+      rows.sort((a, b) =>
+        `${a['Patient ID']}|${a.Date}|${a['Nodule ID']}`.localeCompare(`${b['Patient ID']}|${b.Date}|${b['Nodule ID']}`),
+      );
+      const ok = await writeSheet(current.handle, toCsv(rows));
+      setSheet((s) => (s && s.handle === current.handle ? { ...s, rows: rows.length, savedAt: ok ? Date.now() : s.savedAt, needsPermission: !ok, error: undefined } : s));
+    } catch (e) {
+      setSheet((s) => (s ? { ...s, error: errorText(e) } : s));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!supportsLiveSheet()) return;
+    void loadSheet().then(async (handle) => {
+      if (!handle) return;
+      setSheet({ handle, rows: 0, needsPermission: (await sheetPermission(handle)) !== 'granted' });
+    });
+  }, []);
+
+  const linkSheet = async () => {
+    try {
+      const handle = sheet?.needsPermission && (await requestSheetPermission(sheet.handle)) ? sheet.handle : await pickSheet();
+      if (!handle) return;
+      sheetRef.current = { handle, rows: 0 };
+      setSheet({ handle, rows: 0 });
+      await syncSheet();
+      setNotice(`Sheet linked: ${handle.name} — every accepted nodule is written to it automatically.`);
+    } catch (e) {
+      setNotice(`Could not link the sheet: ${errorText(e)}`);
+    }
+  };
+
   // Save a summary of approved findings so later scans of the same patient can compare against them.
   // Keyed by the series of the loaded 3D data (not the selection, which changes first when switching),
   // and flushed — not dropped — when the researcher moves on, so an approval just before switching
@@ -426,11 +472,16 @@ export default function App() {
             centroidWorld: c ? voxelToWorld(store.volume, c.i, c.j, c.k) : undefined,
           };
         });
+      const rows = findings.filter((f) => f.status === 'approved').map((f) => toRow(info, f));
       void (async () => {
         await idbSet(`summary:${uid}`, records);
+        await idbSet(`rows:${uid}`, rows);
         const list = await idbGet<string[]>(`patientSeries:${patientId}`);
         if (!list?.includes(uid)) await idbSet(`patientSeries:${patientId}`, [...(list ?? []), uid]);
+        const all = (await idbGet<string[]>('sheet-series')) ?? [];
+        if (!all.includes(uid)) await idbSet('sheet-series', [...all, uid]);
         setPriorsVersion((v) => v + 1);
+        void syncSheet();
       })();
     };
     const timer = window.setTimeout(save, 400);
@@ -485,7 +536,24 @@ export default function App() {
     }
   };
 
-  const suggestion = selectedFinding ? suggestMatch(priors, centroidWorld(selectedFinding)) : undefined;
+  // Follow-up: every finding is paired with its most likely earlier self (one-to-one, earlier scans only).
+  const pairs = useMemo(
+    () => pairFindings(snap.findings.map((f) => ({ id: f.id, centroidWorld: centroidWorld(f) })), priors, scanInfo?.studyDate ?? ''),
+    [snap.findings, priors, scanInfo?.studyDate, store], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const suggestion = selectedFinding ? pairs.get(selectedFinding.id) : undefined;
+  /** Change vs the earlier scan for the worklist and the image: confirmed match first, else the suggested pair. */
+  const changes = useMemo(() => {
+    const out = new Map<string, { text: string; dir: 'up' | 'down' | 'same'; vs: string; confirmed: boolean }>();
+    for (const f of snap.findings) {
+      if (f.status === 'rejected' || !f.measurement) continue;
+      const prior = f.match?.prior ?? pairs.get(f.id)?.prior;
+      if (!prior) continue;
+      const c = changeLabel(prior, f.measurement);
+      if (c) out.set(f.id, { ...c, vs: prior.timepoint || prior.date || 'earlier', confirmed: !!f.match });
+    }
+    return out;
+  }, [snap.findings, pairs]);
   const lobeHints = useMemo(() => {
     const out = new Map<string, LobeHint>();
     if (!store || !lobes || lobes.seriesUid !== seriesUid) return out;
@@ -537,10 +605,14 @@ export default function App() {
       patch.lobe = lh.lobe;
       filled.push(`Lobe ${lh.lobe}`);
     }
-    if (filled.length) {
-      store.setFields(id, patch);
-      setNotice(`${f.name} accepted · ${filled.join(', ')} filled from suggestions — change any time.`);
+    if (filled.length) store.setFields(id, patch);
+    // Accepting a follow-up finding also confirms its suggested earlier self (change it in the card).
+    const pair = !f.match ? pairs.get(id) : undefined;
+    if (pair) {
+      store.setMatch(id, { status: 'Confident', prior: pair.prior, at: Date.now() }, pair.prior.noduleId);
+      filled.push(`paired with ${pair.prior.noduleId} (${pair.prior.timepoint})`);
     }
+    if (filled.length) setNotice(`${f.name} accepted · ${filled.join(' · ')} — change any time in the card.`);
     // Keep a small picture of the measured slice for the record and later follow-up comparison.
     withFindingSlice(f, () => {
       const thumb = viewerRef.current?.capture({ maxWidth: 360, type: 'image/jpeg', quality: 0.8 });
@@ -641,13 +713,14 @@ export default function App() {
         findings: snap.findings,
         selectedId: snap.selectedId,
         brush: brushing && cursor ? { ...cursor, radiusMm: brushRadiusMm, erase: leftTool === 'erase' } : undefined,
+        tagSuffix: new Map([...changes].map(([fid, c]) => [fid, ` ${c.text}${c.confirmed ? '' : '?'}`])),
         reference:
           reference && showReference
             ? { labelmap: reference.labelmap, names: [reference.info.segments[reference.selected - 1]?.name ?? 'outline'] }
             : undefined,
       });
     },
-    [store, snap, leftTool, brushRadiusMm, reference, showReference, hideOverlays, mipMm, viewer.voi],
+    [store, snap, leftTool, brushRadiusMm, reference, showReference, hideOverlays, mipMm, viewer.voi, changes],
   );
 
   const onPointer = useCallback(
@@ -1358,6 +1431,13 @@ export default function App() {
         onLoadAi={(file) => void loadAi(file)}
         typeHint={typeHint}
         lobeHints={lobeHints}
+        changes={changes}
+        liveSheet={
+          supportsLiveSheet()
+            ? { name: sheet?.handle.name, rows: sheet?.rows ?? 0, savedAt: sheet?.savedAt, needsPermission: sheet?.needsPermission, error: sheet?.error }
+            : undefined
+        }
+        onLinkSheet={() => void linkSheet()}
         lobeModel={lobes?.model}
         onGoToPriorPosition={(prior) => {
           if (store && prior.centroidWorld) viewerRef.current?.goToSlice(nearestSlice(store.volume, prior.centroidWorld));
