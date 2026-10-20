@@ -232,7 +232,10 @@ export default function App() {
 
   const loadReference = useCallback(
     async (file: File, opts: { silent?: boolean } = {}) => {
-      if (!store || !seriesUid) return;
+      // Always use the series of the loaded 3D data, never the selection: while switching scans the
+      // selection changes before the new volume is ready.
+      if (!store) return;
+      const seriesUid = store.seriesUid;
       setReferenceError(undefined);
       try {
         const ref = parseReference(new Uint8Array(await file.arrayBuffer()));
@@ -275,14 +278,17 @@ export default function App() {
         setReferenceError(`Could not read ${file.name}: ${errorText(e)}`);
       }
     },
-    [store, seriesUid],
+    [store],
   );
 
   const loadAi = useCallback(
     async (file: File, opts: { silent?: boolean } = {}) => {
-      if (!store || !seriesUid) return;
+      if (!store) return;
+      const seriesUid = store.seriesUid; // see loadReference: never the selection
       try {
         const ref = parseReference(new Uint8Array(await file.arrayBuffer()));
+        // Automatic imports only accept results that name their scan; nothing is placed by guesswork.
+        if (opts.silent && !ref.referencedSeriesUid) return;
         if (ref.referencedSeriesUid && ref.referencedSeriesUid !== seriesUid) {
           if (opts.silent) return;
           setNotice('This AI result was computed on another series. Open that scan first.');
@@ -321,7 +327,7 @@ export default function App() {
         setNotice(`Could not read the AI result ${file.name}: ${errorText(e)}`);
       }
     },
-    [store, seriesUid, goToFinding, setNotice],
+    [store, goToFinding, setNotice],
   );
 
   // Public sample: bring in the precomputed AI result and expert outline of whichever scan is open.

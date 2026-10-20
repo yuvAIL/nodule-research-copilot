@@ -45,7 +45,8 @@ function makeId(): string {
 export class FindingsStore {
   readonly volume: Volume;
   readonly labelmap: Labelmap;
-  private readonly seriesUid: string;
+  /** The series this store (volume + findings) belongs to. */
+  readonly seriesUid: string;
   private findings: Finding[] = [];
   private selectedId?: string;
   private version = 0;
@@ -94,7 +95,8 @@ export class FindingsStore {
 
   // ── persistence ─────────────────────────────────────────────
   private key(): string {
-    return `findings:${this.seriesUid}`;
+    // v2: findings saved before 20 Oct 17:15 could contain AI candidates placed on the wrong scan.
+    return `findings:v2:${this.seriesUid}`;
   }
 
   private scheduleSave(): void {

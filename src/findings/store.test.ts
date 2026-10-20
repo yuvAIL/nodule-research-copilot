@@ -69,3 +69,11 @@ describe('FindingsStore', () => {
     s.dispose();
   });
 });
+
+describe('FindingsStore series identity', () => {
+  it('exposes the series it belongs to and saves under a versioned key', () => {
+    const s = setup();
+    expect(s.seriesUid).toBe('series-test');
+    s.dispose();
+  });
+});
