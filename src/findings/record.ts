@@ -121,6 +121,12 @@ export function toCsv(rows: ResearchRow[]): string {
   return `${BOM}${lines.join('\r\n')}\r\n`;
 }
 
+/** CSV for any column set (same quoting, BOM and line endings as the research sheet). */
+export function toCsvTable<C extends string>(columns: readonly C[], rows: Record<C, string>[]): string {
+  const lines = [columns.map(csvCell).join(','), ...rows.map((r) => columns.map((c) => csvCell(r[c] ?? '')).join(','))];
+  return `${BOM}${lines.join('\r\n')}\r\n`;
+}
+
 /** Parses CSV (RFC 4180, quoted fields, any line endings). Returns rows of cells. */
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];

@@ -3,7 +3,20 @@
 Deadline (own target): **Wed 21 Oct 2026, 18:00 (IL)**. Full brief: `docs/MISSION.md`.
 Live: **https://nodule-research-copilot.pages.dev** (Cloudflare Pages, static).
 
-## AI worklist + evaluation — Tue 20 Oct, 15:10 ✅ (deploy pending)
+## Review UX + Naomi's view — Tue 20 Oct, 15:35 ✅ (deploy pending)
+
+**BUILT** — Reject shows a toast with **Undo**; Export shows "Exported N rows → file"; **Space** hides/shows all
+outlines; **Session summary** (AI candidates / accepted / rejected / edited / added by researcher, active time on
+scan with pauses > 2 min excluded, median seconds per accepted finding, rows exported; saved as CSV);
+**Start a new timed run** (two-click, clears the scan's findings and reloads the AI result); collapsible scan
+panel; teaching empty state (Open → Review AI → Export). Sample now served from a versioned folder (cache-proof).
+`npm run eval:ai` (AI vs expert, all scans; resumable).
+**VERIFIED** — tsc + ESLint on the Mac; harness tests (session stats, active time); in the browser: undo restores,
+Space toggles, collapse gives the viewport 75 % at 1280 px with no horizontal scroll, start-over → "0 of 2 reviewed".
+**FOUND & FIXED** — "time on scan" counted the gap between two sessions (13:54) → now active time only.
+**IN PROGRESS** — TotalSegmentator on all 59 scans (background on the Mac, ~2 min/scan, started 15:15).
+
+## AI worklist + evaluation — Tue 20 Oct, 15:10 ✅ (deployed 15:03)
 
 **BUILT** — AI candidates: TotalSegmentator 2.18.0 `lung_nodules` (offline, Mac MPS, ~2 min/scan) → DICOM SEG →
 app splits it into connected pieces → findings with source "AI" (model/version/run date shown), position estimate

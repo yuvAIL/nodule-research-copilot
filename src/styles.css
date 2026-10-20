@@ -1451,3 +1451,124 @@ kbd {
   font-weight: 500;
   line-height: 1.4;
 }
+
+/* collapsible scan panel */
+.app--left-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr) 360px;
+}
+
+.app--left-collapsed > .sidebar {
+  visibility: hidden;
+  padding: 0;
+  border: 0;
+}
+
+@media (max-width: 1360px) {
+  .app--left-collapsed {
+    grid-template-columns: 0 minmax(0, 1fr) 320px;
+  }
+}
+
+/* toast action (inline undo) */
+.toast-action {
+  margin-left: 12px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid rgba(63, 193, 232, 0.5);
+}
+
+.viewport-notice {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+}
+
+.overlay--center {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(10, 13, 17, 0.75);
+  color: var(--muted);
+}
+
+/* session summary */
+.summary .muted {
+  margin: -6px 0 14px;
+  font-size: 12px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.summary-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--panel-border);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.summary-num {
+  font-size: 22px;
+  font-weight: 650;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-num.ok {
+  color: var(--ok);
+}
+
+.sheet.summary {
+  width: min(640px, calc(100vw - 32px));
+}
+
+button.danger {
+  color: #ffd9d6;
+  background: rgba(240, 113, 103, 0.16);
+  border-color: rgba(240, 113, 103, 0.6);
+}
+
+.onboarding {
+  max-width: 440px;
+  padding: 22px 24px;
+  border-radius: 14px;
+  background: rgba(18, 22, 28, 0.92);
+  border: 1px solid #27313c;
+  color: var(--text);
+  pointer-events: auto;
+}
+
+.onboarding h2 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.onboarding ol {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  display: grid;
+  gap: 10px;
+  line-height: 1.55;
+}
+
+.onboarding .muted {
+  margin: 0;
+  font-size: 12px;
+}

@@ -4,6 +4,7 @@ import { provenanceLabel } from '../findings/types';
 import { missingFields, type ScanInfo } from '../findings/record';
 import type { MatchStatus, PriorRecord } from '../findings/priors';
 import { FollowUpPanel } from './FollowUpPanel';
+import { activeMs } from '../findings/session';
 import { DEFAULT_THRESHOLD_HU } from '../measure/segment';
 
 export type VolumeStatus =
@@ -73,10 +74,9 @@ function clock(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/** Time spent on this scan's findings, from the app's own timestamps (first finding → last action). */
+/** Active time on this scan's findings, from the app's own timestamps (breaks > 2 min excluded). */
 function timeOnScan(findings: Finding[]): number | undefined {
-  const ts = findings.flatMap((f) => f.timeline.map((e) => e.t));
-  return ts.length > 1 ? Math.max(...ts) - Math.min(...ts) : undefined;
+  return activeMs(findings.flatMap((f) => f.timeline.map((e) => e.t)));
 }
 
 function fmt(n: number | undefined, digits = 1): string {
@@ -218,7 +218,7 @@ export function FindingsPanel(props: Props) {
               )}
               {ai.length > 0 && added > 0 && <span> · {added} added by you</span>}
               {elapsed !== undefined && elapsed >= 1000 && (
-                <span className="muted" title="From the app's own timestamps: first finding to last action">
+                <span className="muted" title="Active time from the app's own timestamps (breaks over 2 min excluded)">
                   {' '}
                   · {clock(elapsed)} on this scan
                 </span>

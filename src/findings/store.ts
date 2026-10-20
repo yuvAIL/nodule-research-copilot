@@ -488,6 +488,16 @@ export class FindingsStore {
     this.changed();
   }
 
+  /** Deletes every finding of this series (e.g. to start a new timed review run). */
+  clearAll(): void {
+    this.labelmap.data.fill(0);
+    this.findings = [];
+    this.undo.clear();
+    this.selectedId = undefined;
+    this.nextNumber = 1;
+    this.changed();
+  }
+
   remove(id: string): void {
     const f = this.get(id);
     if (!f) return;

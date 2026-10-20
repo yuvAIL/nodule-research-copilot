@@ -11,6 +11,12 @@
     "declaration": false,
     "noEmit": false
   },
-  "include": ["src/reference/*.ts", "src/measure/*.ts"],
-  "exclude": ["src/**/*.test.ts"]
+  "include": [
+    "src/reference/*.ts",
+    "src/measure/*.ts",
+    "src/ai/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ]
 }

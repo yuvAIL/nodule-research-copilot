@@ -481,7 +481,28 @@ export function CtViewport({
       />
       <canvas ref={canvasRef} className="annotation-layer" aria-hidden="true" />
       {series && overlay}
-      {!series && ready && <div className="viewport-placeholder">Load a DICOM CT series to begin</div>}
+      {!series && ready && (
+        <div className="viewport-placeholder">
+          <div className="onboarding">
+            <h2>Three steps</h2>
+            <ol>
+              <li>
+                <b>Open a scan</b> — your CT folder (read only in this browser), or <b>Load sample CT</b> on the left.
+              </li>
+              <li>
+                <b>Review the AI</b> — its candidates appear on the right, outlined and measured. <kbd>A</kbd> accept ·{' '}
+                <kbd>R</kbd> reject · <kbd>B</kbd>/<kbd>E</kbd> fix the edge · <kbd>S</kbd> add a missed nodule.
+              </li>
+              <li>
+                <b>Export</b> — one row per accepted nodule, in your sheet&apos;s columns.
+              </li>
+            </ol>
+            <p className="muted">
+              Press <kbd>?</kbd> for all shortcuts.
+            </p>
+          </div>
+        </div>
+      )}
       {!ready && <div className="viewport-placeholder">Initialising viewer…</div>}
       {loading && <div className="viewport-loading">Loading slices…</div>}
     </div>

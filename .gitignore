@@ -61,3 +61,4 @@ DICOMDIR
 
 # evaluation cache (re-creatable)
 /docs/eval/cache/
+/docs/eval/cache-ai/

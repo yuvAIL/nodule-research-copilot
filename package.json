@@ -18,7 +18,8 @@
     "diagnose:builtins": "node scripts/find-node-builtins.mjs",
     "dev:clean": "vite --force",
     "prepare:sample": "node scripts/prepare-sample.mjs",
-    "eval": "tsc -p tsconfig.eval.json && node scripts/evaluate.cjs"
+    "eval": "tsc -p tsconfig.eval.json && node scripts/evaluate.cjs",
+    "eval:ai": "tsc -p tsconfig.eval.json && node scripts/evaluate-ai.cjs"
   },
   "dependencies": {
     "@cornerstonejs/core": "5.13.1",

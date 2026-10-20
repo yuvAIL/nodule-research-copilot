@@ -20,6 +20,7 @@ import { importSpreadsheet, suggestMatch, type PriorRecord } from './findings/pr
 import { nearestSlice, voxelToWorld, type Vec3 } from './measure/volume';
 import { FileLoader, type ResumeOffer } from './components/FileLoader';
 import { MetadataPanel } from './components/MetadataPanel';
+import { SessionSummary } from './components/SessionSummary';
 import { ReferencePanel, type AgreementView, type LoadedReference } from './components/ReferencePanel';
 import type { Labelmap } from './measure/labelmap';
 import { measureLabel } from './measure/measure';
@@ -91,7 +92,14 @@ export default function App() {
   const [volumeStatus, setVolumeStatus] = useState<VolumeStatus>({ kind: 'none' });
   const [brushRadiusMm, setBrushRadiusMm] = useState(3);
   const [brush3d, setBrush3d] = useState(true);
-  const [notice, setNotice] = useState<string>();
+  const [notice, setNoticeState] = useState<{ text: string; action?: { label: string; run: () => void } }>();
+  const setNotice = useCallback((text: string | undefined, action?: { label: string; run: () => void }) => {
+    setNoticeState(text === undefined ? undefined : { text, action });
+  }, []);
+  const [hideOverlays, setHideOverlays] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [exportedRows, setExportedRows] = useState(0);
   const brushCursor = useRef<{ x: number; y: number } | undefined>(undefined);
   const lastPaint = useRef<{ i: number; j: number; k: number } | undefined>(undefined);
   const snap = useSyncExternalStore(store?.subscribe ?? noopSubscribe, store?.getSnapshot ?? emptySnapshot);
@@ -155,6 +163,16 @@ export default function App() {
     const rows = snap.findings.filter((f) => f.status === 'approved').map((f) => toRow(scanInfo, f));
     const name = `${scanInfo.patientId || 'scan'}_${scanInfo.timepoint}_${new Date().toISOString().slice(0, 10)}.csv`.replace(/\s+/g, '-');
     downloadText(name, toCsv(rows));
+    setExportedRows((n) => n + rows.length);
+    setNotice(`Exported ${rows.length} row${rows.length === 1 ? '' : 's'} → ${name}`);
+  };
+
+  /** Reject with an inline "Undo" in the toast. */
+  const rejectWithUndo = (id: string) => {
+    if (!store) return;
+    const f = store.get(id);
+    store.reject(id);
+    if (f) setNotice(`${f.name} rejected — it will not be exported.`, { label: 'Undo', run: () => store.reopen(id) });
   };
 
   // ── follow-up: earlier measurements of this patient ───────────
@@ -256,7 +274,7 @@ export default function App() {
         setNotice(`Could not read the AI result ${file.name}: ${errorText(e)}`);
       }
     },
-    [store, seriesUid, goToFinding],
+    [store, seriesUid, goToFinding, setNotice],
   );
 
   // Public sample: bring in its precomputed AI result and expert outline once the 3D data is ready.
@@ -272,11 +290,11 @@ export default function App() {
         setNotice(`Sample extras unavailable: ${errorText(e)}`);
       }
     })();
-  }, [store, loadAi, loadReference]);
+  }, [store, loadAi, loadReference, setNotice]);
 
   useEffect(() => {
     viewerRef.current?.redrawAnnotations();
-  }, [reference, showReference]);
+  }, [reference, showReference, hideOverlays]);
 
   // Agreement of the selected finding with the expert outline (debounced: it scans the voxels).
   useEffect(() => {
@@ -440,9 +458,9 @@ export default function App() {
 
   useEffect(() => {
     if (!notice) return;
-    const t = window.setTimeout(() => setNotice(undefined), 4500);
+    const t = window.setTimeout(() => setNotice(undefined), notice.action ? 7000 : 4500);
     return () => window.clearTimeout(t);
-  }, [notice]);
+  }, [notice, setNotice]);
 
   /** Once the stack is displayed, decode all slices into a 3D volume in the background. */
   const seriesRef = useRef(series);
@@ -492,6 +510,7 @@ export default function App() {
       if (!store) return;
       const brushing = leftTool === 'brush' || leftTool === 'erase';
       const cursor = brushCursor.current;
+      if (hideOverlays) return;
       drawAnnotations(ctx, view, {
         labelmap: store.labelmap,
         findings: snap.findings,
@@ -503,7 +522,7 @@ export default function App() {
             : undefined,
       });
     },
-    [store, snap, leftTool, brushRadiusMm, reference, showReference],
+    [store, snap, leftTool, brushRadiusMm, reference, showReference, hideOverlays],
   );
 
   const onPointer = useCallback(
@@ -556,12 +575,14 @@ export default function App() {
         lastPaint.current = undefined;
       }
     },
-    [store, leftTool, snap.selectedId, brushRadiusMm, brush3d, volumeStatus],
+    [store, leftTool, snap.selectedId, brushRadiusMm, brush3d, volumeStatus, setNotice],
   );
 
   const approveRef = useRef(approve);
+  const rejectRef = useRef(rejectWithUndo);
   useEffect(() => {
     approveRef.current = approve;
+    rejectRef.current = rejectWithUndo;
   });
 
   // Keyboard shortcuts (ignored while typing in a field).
@@ -582,7 +603,15 @@ export default function App() {
         setShowHelp((v) => !v);
         return;
       }
-      if (e.key === 'Escape') setShowHelp(false);
+      if (e.key === 'Escape') {
+        setShowHelp(false);
+        setShowSummary(false);
+      }
+      if (e.key === ' ' && series) {
+        e.preventDefault();
+        setHideOverlays((v) => !v);
+        return;
+      }
       const tools: Record<string, LeftMouseTool> = { s: 'segment', b: 'brush', e: 'erase', w: 'windowLevel', p: 'pan', z: 'zoom' };
       const key = e.key.toLowerCase();
       if (tools[key] && series) {
@@ -619,7 +648,7 @@ export default function App() {
       if (key === 'a' && id) {
         approveRef.current(id, wasToReview ? () => show(nextToReview(start)) : undefined);
       } else if (key === 'r' && id) {
-        store.reject(id);
+        rejectRef.current(id);
         if (wasToReview) show(nextToReview(start));
       } else if (key === 'n') {
         show(nextToReview(start) ?? list[start]);
@@ -829,17 +858,30 @@ export default function App() {
         {viewer.zoom !== undefined && <div>Zoom {Math.round(viewer.zoom * 100)}%</div>}
       </div>
       <div className="overlay overlay--bl">Research use only — not for diagnosis</div>
+      {hideOverlays && <div className="overlay overlay--center">Outlines hidden — press Space to show</div>}
       <div className="overlay overlay--br">Wheel/↑↓ slice · middle-drag pan · right-drag zoom</div>
       {notice && (
         <div className="viewport-notice" role="status">
-          {notice}
+          {notice.text}
+          {notice.action && (
+            <button
+              type="button"
+              className="toast-action"
+              onClick={() => {
+                notice.action?.run();
+                setNotice(undefined);
+              }}
+            >
+              {notice.action.label}
+            </button>
+          )}
         </div>
       )}
     </>
   );
 
   return (
-    <div className="app">
+    <div className={`app${leftCollapsed ? ' app--left-collapsed' : ''}`}>
       <header className="app-header">
         <span className="brand-mark" aria-hidden="true" />
         <h1>Nodule Research Copilot</h1>
@@ -848,11 +890,40 @@ export default function App() {
           <span className="lock" title="No server: DICOM files are read by this page only, and the browser blocks connections to other sites.">
             Scans stay on this computer
           </span>
+          <button type="button" className="ghost small" onClick={() => setLeftCollapsed((v) => !v)} title="Show/hide the scan panel">
+            {leftCollapsed ? 'Show scan panel' : 'Hide scan panel'}
+          </button>
+          <button type="button" className="ghost small" disabled={!store} onClick={() => setShowSummary(true)}>
+            Session summary
+          </button>
           <button type="button" className="ghost small" onClick={() => setShowHelp(true)} title="Keyboard shortcuts (?)">
             Shortcuts <kbd>?</kbd>
           </button>
         </div>
       </header>
+
+      {showSummary && store && (
+        <SessionSummary
+          findings={snap.findings}
+          exportedRows={exportedRows}
+          scan={scanInfo}
+          onClose={() => setShowSummary(false)}
+          onStartOver={() => {
+            store.clearAll();
+            setExportedRows(0);
+            setShowSummary(false);
+            if (source?.kind === 'sample') {
+              pendingSampleExtras.current = undefined;
+              void (async () => {
+                const manifest = await fetchSampleManifest();
+                if (manifest?.ai) await loadAi(await fetchSampleFile(manifest.ai));
+              })();
+            } else {
+              setNotice('All findings deleted. Load the AI result again (Worklist → Load AI result…) to start a timed run.');
+            }
+          }}
+        />
+      )}
 
       {showHelp && (
         <div className="sheet-backdrop" role="presentation" onClick={() => setShowHelp(false)}>
@@ -879,6 +950,8 @@ export default function App() {
               <dd><kbd>W</kbd> <kbd>P</kbd> <kbd>Z</kbd></dd>
               <dt>Scroll slices</dt>
               <dd>wheel · <kbd>↑</kbd> <kbd>↓</kbd></dd>
+              <dt>Hide / show outlines</dt>
+              <dd><kbd>Space</kbd></dd>
               <dt>Close / deselect</dt>
               <dd><kbd>Esc</kbd></dd>
             </dl>
@@ -1100,7 +1173,7 @@ export default function App() {
         onSelect={(id) => store?.select(id)}
         onGoTo={goToFinding}
         onApprove={approve}
-        onReject={(id) => store?.reject(id)}
+        onReject={rejectWithUndo}
         onReopen={(id) => store?.reopen(id)}
         onUndo={(id) => store?.undoLast(id)}
         onReset={(id) => store?.resetEdits(id)}
