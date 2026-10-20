@@ -23,9 +23,9 @@ import { MetadataPanel } from './components/MetadataPanel';
 import { ReferencePanel, type AgreementView, type LoadedReference } from './components/ReferencePanel';
 import type { Labelmap } from './measure/labelmap';
 import { measureLabel } from './measure/measure';
-import { bestReferenceLabel, compareToReference } from './reference/compare';
+import { compareToReference, overlapCount } from './reference/compare';
 import { parseReference } from './reference/parseReference';
-import { rasterizeReference } from './reference/rasterize';
+import { defaultSegment, rasterizeReference, segmentLabelmap } from './reference/rasterize';
 import { Toolbar } from './components/Toolbar';
 import { preFilter } from './dicom/collectFiles';
 import { parseDicomHeaders, type LocalFile, type ParseProgress } from './dicom/parseHeader';
@@ -40,7 +40,8 @@ import {
   type LastSession,
   type SessionSource,
 } from './session/lastSession';
-import { downloadSample, fetchSampleManifest } from './session/sampleData';
+import { downloadSample, fetchSampleFile, fetchSampleManifest } from './session/sampleData';
+import { candidatesFromSegments } from './ai/candidates';
 
 type LoadStatus =
   | { kind: 'idle' }
@@ -97,10 +98,22 @@ export default function App() {
   const selectedFinding = snap.findings.find((f) => f.id === snap.selectedId);
 
   // Expert reference (read-only outline from a DICOM SEG / RTSTRUCT), per open series.
-  const [reference, setReference] = useState<{ seriesUid: string; labelmap: Labelmap; info: LoadedReference }>();
+  const [reference, setReference] = useState<{
+    seriesUid: string;
+    info: LoadedReference;
+    /** Segment shown and compared (1-based position in the file). */
+    selected: number;
+    /** Only the selected segment, value 1. */
+    labelmap: Labelmap;
+  }>();
   const [showReference, setShowReference] = useState(true);
   const [referenceError, setReferenceError] = useState<string>();
   const [agreement, setAgreement] = useState<AgreementView>();
+  const [showHelp, setShowHelp] = useState(false);
+  /** DICOM SEG / RTSTRUCT files found in the opened folder (offered as AI result or expert outline). */
+  const [segFiles, setSegFiles] = useState<{ file: File; path: string; description?: string; manufacturer?: string; modality: string }[]>([]);
+  /** AI result / expert outline that come with the public sample; imported once the 3D data is ready. */
+  const pendingSampleExtras = useRef<{ ai?: string; reference?: string } | undefined>(undefined);
   const [timepoints, setTimepoints] = useState<Record<string, string>>({});
   const [priors, setPriors] = useState<PriorRecord[]>([]);
   const [priorsVersion, setPriorsVersion] = useState(0);
@@ -153,6 +166,10 @@ export default function App() {
     return c && store ? voxelToWorld(store.volume, c.i, c.j, c.k) : undefined;
   };
 
+  const goToFinding = useCallback((f: Finding) => {
+    if (f.measurement) viewerRef.current?.goToSlice(f.measurement.sliceIndex);
+  }, []);
+
   // An expert outline belongs to one series: drop it when another series (or scan) is opened.
   useEffect(() => {
     setReference((r) => (r && r.seriesUid !== seriesUid ? undefined : r));
@@ -173,19 +190,22 @@ export default function App() {
           return;
         }
         const raster = rasterizeReference(ref, store.volume);
-        if (raster.segments.every((s) => s.voxelCount === 0)) {
+        const chosen = defaultSegment(raster.segments);
+        if (!chosen) {
           setReferenceError('No part of this outline lies on the open series.');
           return;
         }
         const warnings = [...raster.warnings];
         if (!ref.referencedSeriesUid) warnings.push('The file does not name its series; it was placed by patient coordinates only.');
-        const segments = raster.segments.map((s) => ({
-          ...s,
-          measurement: s.voxelCount ? measureLabel(raster.labelmap, store.volume, s.label, { kMin: s.kMin, kMax: s.kMax }) : undefined,
-        }));
+        const segments = raster.segments.map((s) => {
+          if (!s.voxelCount) return { ...s, measurement: undefined };
+          const lm = segmentLabelmap(store.volume, s);
+          return { ...s, measurement: measureLabel(lm, store.volume, 1, { kMin: s.kMin, kMax: s.kMax }) };
+        });
         setReference({
           seriesUid,
-          labelmap: raster.labelmap,
+          selected: chosen.label,
+          labelmap: segmentLabelmap(store.volume, chosen),
           info: {
             kind: ref.kind,
             fileName: file.name,
@@ -203,6 +223,57 @@ export default function App() {
     [store, seriesUid],
   );
 
+  const loadAi = useCallback(
+    async (file: File) => {
+      if (!store || !seriesUid) return;
+      try {
+        const ref = parseReference(new Uint8Array(await file.arrayBuffer()));
+        if (ref.referencedSeriesUid && ref.referencedSeriesUid !== seriesUid) {
+          setNotice('This AI result was computed on another series. Open that scan first.');
+          return;
+        }
+        const raster = rasterizeReference(ref, store.volume);
+        const set = candidatesFromSegments(raster.segments, store.volume);
+        if (!set) {
+          setNotice('The AI result has no nodule segment on this series.');
+          return;
+        }
+        const r = store.addAiCandidates(set.candidates, {
+          model: ref.manufacturer ?? ref.modelName ?? 'AI model',
+          segment: set.segment,
+          version: ref.softwareVersion,
+          fileUid: ref.sopInstanceUid,
+          runDate: ref.contentDate,
+        });
+        const tiny = set.hiddenTiny ? ` (${set.hiddenTiny} piece${set.hiddenTiny === 1 ? '' : 's'} under ${set.minVolumeMm3} mm³ ignored)` : '';
+        if (r.added) {
+          setNotice(`AI found ${set.candidates.length} candidate${set.candidates.length === 1 ? '' : 's'}${tiny}. Review: A accept · R reject · J/K next/previous.`);
+          const first = store.get(r.firstId);
+          if (first) goToFinding(first);
+        } else if (r.skipped) setNotice('This AI result is already in the worklist.');
+        else setNotice(`The AI found no nodule candidates on this scan${tiny}.`);
+      } catch (e) {
+        setNotice(`Could not read the AI result ${file.name}: ${errorText(e)}`);
+      }
+    },
+    [store, seriesUid, goToFinding],
+  );
+
+  // Public sample: bring in its precomputed AI result and expert outline once the 3D data is ready.
+  useEffect(() => {
+    const extras = pendingSampleExtras.current;
+    if (!store || !extras) return;
+    pendingSampleExtras.current = undefined;
+    void (async () => {
+      try {
+        if (extras.reference) await loadReference(await fetchSampleFile(extras.reference));
+        if (extras.ai) await loadAi(await fetchSampleFile(extras.ai));
+      } catch (e) {
+        setNotice(`Sample extras unavailable: ${errorText(e)}`);
+      }
+    })();
+  }, [store, loadAi, loadReference]);
+
   useEffect(() => {
     viewerRef.current?.redrawAnnotations();
   }, [reference, showReference]);
@@ -216,14 +287,13 @@ export default function App() {
     setAgreement({ kind: 'busy' });
     const f = selectedFinding;
     const timer = window.setTimeout(() => {
-      const refLabel = bestReferenceLabel(store.labelmap, f.label, reference.labelmap, { kMin: f.kMin, kMax: f.kMax });
-      const seg = refLabel ? reference.info.segments[refLabel - 1] : undefined;
-      if (!refLabel || !seg) {
+      const seg = reference.info.segments[reference.selected - 1];
+      if (!seg || overlapCount(store.labelmap, f.label, seg.voxels) === 0) {
         setAgreement({ kind: 'no-overlap', finding: f.name });
         return;
       }
       const range = { kMin: Math.min(f.kMin, seg.kMin), kMax: Math.max(f.kMax, seg.kMax) };
-      const a = compareToReference(store.labelmap, f.label, reference.labelmap, refLabel, store.volume, range);
+      const a = compareToReference(store.labelmap, f.label, reference.labelmap, 1, store.volume, range);
       setAgreement(a ? { kind: 'ok', finding: f.name, segment: seg.name, agreement: a } : { kind: 'no-overlap', finding: f.name });
     }, 250);
     return () => window.clearTimeout(timer);
@@ -324,7 +394,7 @@ export default function App() {
     window.setTimeout(then, 400);
   };
 
-  const approve = (id: string) => {
+  const approve = (id: string, then?: () => void) => {
     if (!store) return;
     const f = store.get(id);
     if (!f?.measurement) return;
@@ -333,6 +403,7 @@ export default function App() {
     withFindingSlice(f, () => {
       const thumb = viewerRef.current?.capture({ maxWidth: 360, type: 'image/jpeg', quality: 0.8 });
       if (thumb) store.setThumbnail(id, thumb);
+      then?.();
     });
   };
 
@@ -415,9 +486,6 @@ export default function App() {
       });
   }, []);
 
-  const goToFinding = useCallback((f: Finding) => {
-    if (f.measurement) viewerRef.current?.goToSlice(f.measurement.sliceIndex);
-  }, []);
 
   const draw = useCallback(
     (ctx: CanvasRenderingContext2D, view: ViewMapper) => {
@@ -431,7 +499,7 @@ export default function App() {
         brush: brushing && cursor ? { ...cursor, radiusMm: brushRadiusMm, erase: leftTool === 'erase' } : undefined,
         reference:
           reference && showReference
-            ? { labelmap: reference.labelmap, names: reference.info.segments.map((x) => x.name) }
+            ? { labelmap: reference.labelmap, names: [reference.info.segments[reference.selected - 1]?.name ?? 'outline'] }
             : undefined,
       });
     },
@@ -510,6 +578,11 @@ export default function App() {
         return;
       }
       if (mod) return;
+      if (e.key === '?') {
+        setShowHelp((v) => !v);
+        return;
+      }
+      if (e.key === 'Escape') setShowHelp(false);
       const tools: Record<string, LeftMouseTool> = { s: 'segment', b: 'brush', e: 'erase', w: 'windowLevel', p: 'pan', z: 'zoom' };
       const key = e.key.toLowerCase();
       if (tools[key] && series) {
@@ -523,21 +596,36 @@ export default function App() {
         return;
       }
       if (!store) return;
-      if (key === 'a' && id) approveRef.current(id);
-      else if (key === 'r' && id) store.reject(id);
-      else if (key === 'n') {
-        // Next finding still to review (wraps around).
-        const list = snap.findings;
-        if (list.length === 0) return;
-        const start = list.findIndex((f) => f.id === id);
+      const list = snap.findings;
+      const start = list.findIndex((f) => f.id === id);
+      const show = (f: Finding | undefined) => {
+        if (!f) return;
+        store.select(f.id);
+        goToFinding(f);
+      };
+      /** Next finding still to review after `from` (wraps around); undefined when all are reviewed. */
+      const nextToReview = (from: number) => {
         for (let step = 1; step <= list.length; step++) {
-          const f = list[(start + step) % list.length] as Finding;
-          if (f.status === 'unreviewed' || step === list.length) {
-            store.select(f.id);
-            goToFinding(f);
-            break;
-          }
+          const f = list[(from + step + list.length) % list.length] as Finding;
+          if (f.status === 'unreviewed' && f.id !== id) return f;
         }
+        return undefined;
+      };
+      const wasToReview = list[start]?.status === 'unreviewed';
+      // Review keys act on the image, not on whatever button was clicked last (avoids stray focus rings).
+      if ('arjkn'.includes(key) && document.activeElement instanceof HTMLElement && document.activeElement.tagName === 'BUTTON') {
+        document.activeElement.blur();
+      }
+      if (key === 'a' && id) {
+        approveRef.current(id, wasToReview ? () => show(nextToReview(start)) : undefined);
+      } else if (key === 'r' && id) {
+        store.reject(id);
+        if (wasToReview) show(nextToReview(start));
+      } else if (key === 'n') {
+        show(nextToReview(start) ?? list[start]);
+      } else if ((key === 'j' || key === 'k') && list.length) {
+        e.preventDefault();
+        show(list[(start + (key === 'j' ? 1 : -1) + list.length) % list.length]);
       } else if (key === 'escape') store.select(undefined);
     };
     window.addEventListener('keydown', onKey);
@@ -577,6 +665,11 @@ export default function App() {
       }
       const { headers, skipped: parseSkipped } = parsed;
       const { series: built, skipped: buildSkipped } = buildSeries(headers);
+      setSegFiles(
+        headers
+          .filter((h) => h.modality === 'SEG' || h.modality === 'RTSTRUCT')
+          .map((h) => ({ file: h.file, path: h.relativePath, description: h.seriesDescription, manufacturer: h.manufacturer, modality: h.modality })),
+      );
 
       // Return to the series and slice of the previous session when it is part of this data.
       const restored = restore?.seriesInstanceUid
@@ -630,6 +723,7 @@ export default function App() {
         if (!manifest) throw new Error('No sample CT is deployed with this build.');
         setStatus({ kind: 'downloading', done: 0, total: manifest.files.length });
         const files = await downloadSample(manifest, (done, total) => setStatus({ kind: 'downloading', done, total }));
+        pendingSampleExtras.current = manifest.ai || manifest.reference ? { ai: manifest.ai, reference: manifest.reference } : undefined;
         await loadFiles(files, { kind: 'sample' }, restore);
       } catch (e) {
         setStatus({ kind: 'idle' });
@@ -747,9 +841,50 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
+        <span className="brand-mark" aria-hidden="true" />
         <h1>Nodule Research Copilot</h1>
         <span className="badge">Research prototype · not for clinical use</span>
+        <div className="header-right">
+          <span className="lock" title="No server: DICOM files are read by this page only, and the browser blocks connections to other sites.">
+            Scans stay on this computer
+          </span>
+          <button type="button" className="ghost small" onClick={() => setShowHelp(true)} title="Keyboard shortcuts (?)">
+            Shortcuts <kbd>?</kbd>
+          </button>
+        </div>
       </header>
+
+      {showHelp && (
+        <div className="sheet-backdrop" role="presentation" onClick={() => setShowHelp(false)}>
+          <div className="sheet" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" onClick={(e) => e.stopPropagation()}>
+            <h2>Keyboard shortcuts</h2>
+            <dl>
+              <dt>Accept finding (then jump to the next one to review)</dt>
+              <dd><kbd>A</kbd></dd>
+              <dt>Reject finding (then jump to the next one)</dt>
+              <dd><kbd>R</kbd></dd>
+              <dt>Next / previous finding</dt>
+              <dd><kbd>J</kbd> <kbd>K</kbd></dd>
+              <dt>Next finding still to review</dt>
+              <dd><kbd>N</kbd></dd>
+              <dt>Add a missed nodule (click it)</dt>
+              <dd><kbd>S</kbd></dd>
+              <dt>Brush / erase the selected outline</dt>
+              <dd><kbd>B</kbd> <kbd>E</kbd></dd>
+              <dt>Brush size</dt>
+              <dd><kbd>[</kbd> <kbd>]</kbd></dd>
+              <dt>Undo last edit</dt>
+              <dd><kbd>⌘</kbd><kbd>Z</kbd></dd>
+              <dt>Window/level · pan · zoom (left mouse)</dt>
+              <dd><kbd>W</kbd> <kbd>P</kbd> <kbd>Z</kbd></dd>
+              <dt>Scroll slices</dt>
+              <dd>wheel · <kbd>↑</kbd> <kbd>↓</kbd></dd>
+              <dt>Close / deselect</dt>
+              <dd><kbd>Esc</kbd></dd>
+            </dl>
+          </div>
+        </div>
+      )}
 
       <aside className="sidebar">
         <FileLoader
@@ -823,6 +958,35 @@ export default function App() {
           </section>
         )}
 
+        {series && segFiles.length > 0 && (
+          <section className="panel seg-files">
+            <h2>Segmentation files in this folder</h2>
+            <ul>
+              {segFiles.slice(0, 12).map((f) => (
+                <li key={f.path}>
+                  <div className="seg-file-name" title={f.path}>
+                    {f.description || f.path.split('/').pop()}
+                    <span className="muted">
+                      {' '}
+                      · {f.modality}
+                      {f.manufacturer ? ` · ${f.manufacturer}` : ''}
+                    </span>
+                  </div>
+                  <div className="button-row button-row--start">
+                    <button type="button" className="ghost small" disabled={!store} onClick={() => void loadAi(f.file)}>
+                      As AI candidates
+                    </button>
+                    <button type="button" className="ghost small" disabled={!store} onClick={() => void loadReference(f.file)}>
+                      As expert outline
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {segFiles.length > 12 && <p className="hint">…and {segFiles.length - 12} more.</p>}
+          </section>
+        )}
+
         {series && (
           <ReferencePanel
             ready={!!store}
@@ -832,6 +996,12 @@ export default function App() {
             agreement={agreement}
             onLoad={(file) => void loadReference(file)}
             onShow={setShowReference}
+            selected={reference?.selected}
+            onSelect={(label) => {
+              const seg = reference?.info.segments[label - 1];
+              if (!store || !reference || !seg?.voxelCount) return;
+              setReference({ ...reference, selected: label, labelmap: segmentLabelmap(store.volume, seg) });
+            }}
             onClear={() => setReference(undefined)}
             onGoTo={(k) => viewerRef.current?.goToSlice(k)}
           />
@@ -945,6 +1115,7 @@ export default function App() {
         onMatch={(id, prior, status) => store?.setMatch(id, { status, prior: { ...prior, thumbnail: prior.thumbnail }, at: Date.now() }, prior.noduleId)}
         onClearMatch={(id) => store?.setMatch(id, undefined)}
         onImport={(file) => void importSheet(file)}
+        onLoadAi={(file) => void loadAi(file)}
         onGoToPriorPosition={(prior) => {
           if (store && prior.centroidWorld) viewerRef.current?.goToSlice(nearestSlice(store.volume, prior.centroidWorld));
         }}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Finding, Lobe, NoduleType } from '../findings/types';
 import { provenanceLabel } from '../findings/types';
 import { missingFields, type ScanInfo } from '../findings/record';
@@ -39,6 +39,8 @@ interface Props {
   onClearMatch: (id: string) => void;
   onImport: (file: File) => void;
   onGoToPriorPosition: (prior: PriorRecord) => void;
+  /** Loads an AI result (DICOM SEG) as candidates to review. */
+  onLoadAi: (file: File) => void;
 }
 
 const TYPES: { value: NoduleType; label: string }[] = [
@@ -52,10 +54,30 @@ const TYPES: { value: NoduleType; label: string }[] = [
 const LOBES: Lobe[] = ['', 'RUL', 'RML', 'RLL', 'LUL', 'Lingula', 'LLL'];
 
 const STATUS_LABEL: Record<Finding['status'], string> = {
-  unreviewed: 'To review',
-  approved: 'Approved',
-  rejected: 'Rejected',
+  unreviewed: '● To review',
+  approved: '✓ Approved',
+  rejected: '✕ Rejected',
 };
+
+function SourceChip({ f }: { f: Finding }) {
+  if (f.source === 'ai') return <span className="chip chip--ai" title="Proposed by the AI model">AI</span>;
+  return (
+    <span className="chip chip--you" title={f.source === 'click' ? 'Added by you (click segmentation)' : 'Added by you (brush)'}>
+      You
+    </span>
+  );
+}
+
+function clock(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/** Time spent on this scan's findings, from the app's own timestamps (first finding → last action). */
+function timeOnScan(findings: Finding[]): number | undefined {
+  const ts = findings.flatMap((f) => f.timeline.map((e) => e.t));
+  return ts.length > 1 ? Math.max(...ts) - Math.min(...ts) : undefined;
+}
 
 function fmt(n: number | undefined, digits = 1): string {
   return n === undefined ? '—' : n.toFixed(digits);
@@ -93,12 +115,15 @@ function ThresholdControl({ finding, onResegment }: { finding: Finding; onResegm
 
 export function FindingsPanel(props: Props) {
   const { volume, findings, selected, canUndo } = props;
-  const visible = findings.filter((f) => f.status !== 'rejected');
-  const rejected = findings.length - visible.length;
   const toReview = findings.filter((f) => f.status === 'unreviewed').length;
 
   const approved = findings.filter((f) => f.status === 'approved');
   const incomplete = approved.filter((f) => missingFields(f).length > 0).length;
+  const ai = findings.filter((f) => f.source === 'ai');
+  const aiReviewed = ai.filter((f) => f.status !== 'unreviewed').length;
+  const added = findings.length - ai.length;
+  const elapsed = timeOnScan(findings);
+  const aiInput = useRef<HTMLInputElement>(null);
 
   return (
     <aside className="copilot">
@@ -144,29 +169,63 @@ export function FindingsPanel(props: Props) {
         </section>
       )}
 
-      <section className="panel">
-        <h2>Findings</h2>
+      <section className="panel worklist">
+        <div className="worklist-head">
+          <h2>Worklist</h2>
+          <button type="button" className="ghost small" disabled={volume.kind !== 'ready'} onClick={() => aiInput.current?.click()}>
+            Load AI result…
+          </button>
+          <input
+            ref={aiInput}
+            type="file"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) props.onLoadAi(f);
+            }}
+          />
+        </div>
         {volume.kind === 'loading' && (
           <div className="volume-status">
-            Preparing 3D measurement data… {volume.done}/{volume.total}
+            Preparing 3D data… {volume.done}/{volume.total}
             <progress max={volume.total} value={volume.done} />
           </div>
         )}
         {volume.kind === 'error' && <div className="panel--error-text">{volume.message}</div>}
         {volume.kind === 'ready' && findings.length === 0 && (
-          <p className="hint">
-            Choose <b>Click nodule</b> (S) and click inside a nodule: it is outlined in 3D and measured in mm.
-            Correct edges with <b>Brush</b> (B) / <b>Erase</b> (E).
-          </p>
+          <div className="empty">
+            <p>
+              <b>No findings yet.</b> Load the AI result for this scan, or press <kbd>S</kbd> and click a nodule to
+              outline and measure it.
+            </p>
+          </div>
         )}
         {volume.kind === 'ready' && volume.restored > 0 && (
           <p className="hint">Restored {volume.restored} saved finding(s) for this series.</p>
         )}
         {findings.length > 0 && (
           <>
-            <div className="finding-counts">
-              {findings.length} finding{findings.length === 1 ? '' : 's'} · {toReview} to review
-              {rejected > 0 ? ` · ${rejected} rejected` : ''}
+            <div className="worklist-progress">
+              {ai.length > 0 ? (
+                <span>
+                  <b>AI found {ai.length}</b> · {aiReviewed} of {ai.length} reviewed
+                </span>
+              ) : (
+                <span>
+                  {findings.length} finding{findings.length === 1 ? '' : 's'} · {toReview} to review
+                </span>
+              )}
+              {ai.length > 0 && added > 0 && <span> · {added} added by you</span>}
+              {elapsed !== undefined && elapsed >= 1000 && (
+                <span className="muted" title="From the app's own timestamps: first finding to last action">
+                  {' '}
+                  · {clock(elapsed)} on this scan
+                </span>
+              )}
+              <div className="meter" aria-hidden="true">
+                <div style={{ width: `${(100 * (findings.length - toReview)) / findings.length}%` }} />
+              </div>
             </div>
             <ul className="finding-list">
               {findings.map((f) => (
@@ -179,11 +238,13 @@ export function FindingsPanel(props: Props) {
                       props.onGoTo(f);
                     }}
                   >
+                    <SourceChip f={f} />
                     <span className="finding-name">{f.name}</span>
                     <span className="finding-dims mono">
-                      {f.measurement ? `${fmt(f.measurement.longMm)} × ${fmt(f.measurement.shortMm)} mm` : '—'}
+                      {f.measurement ? `${fmt(f.measurement.longMm)} × ${fmt(f.measurement.shortMm)}` : '—'}
                     </span>
                     <span className={`chip chip--${f.status}`}>{STATUS_LABEL[f.status]}</span>
+                    {f.positionEstimate && <span className="finding-where">{f.positionEstimate}</span>}
                     {f.status === 'approved' && missingFields(f).length > 0 && (
                       <span className="missing-note">missing {missingFields(f).join(', ')}</span>
                     )}
@@ -191,6 +252,10 @@ export function FindingsPanel(props: Props) {
                 </li>
               ))}
             </ul>
+            <div className="kbd-hint">
+              <kbd>A</kbd> accept · <kbd>R</kbd> reject · <kbd>J</kbd>/<kbd>K</kbd> next/prev · <kbd>E</kbd> erase ·{' '}
+              <kbd>B</kbd> brush · <kbd>S</kbd> add missed nodule
+            </div>
           </>
         )}
       </section>
@@ -223,7 +288,7 @@ export function FindingsPanel(props: Props) {
                   <span className="muted">({fmt(selected.measurement.volumeMm3 / 1000, 2)} mL)</span>
                 </dd>
               </div>
-              <div>
+              <div className="metric--small">
                 <dt>Extent</dt>
                 <dd className="mono">
                   {selected.measurement.slicesSpanned} slices · axes on slice {selected.measurement.sliceIndex + 1}
@@ -234,8 +299,13 @@ export function FindingsPanel(props: Props) {
             <p className="hint">No outline yet — paint with the brush.</p>
           )}
 
+          {selected.positionEstimate && (
+            <div className="position-estimate">
+              <span className="muted">Position (estimate from AI lung mask):</span> {selected.positionEstimate}
+            </div>
+          )}
           <div className="provenance">
-            <span className="muted">Source:</span> {provenanceLabel(selected)}
+            <SourceChip f={selected} /> {provenanceLabel(selected)}
             {selected.segmentation && (
               <span className="muted">
                 {' '}

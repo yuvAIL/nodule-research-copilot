@@ -3,6 +3,7 @@
  * Prepares the "Load sample CT" data from a local TCIA download.
  *
  *   npm run prepare:sample -- <series-folder> [<second-series-folder>] [--out public/sample] [--title "..."]
+ *                             [--ai <AI result SEG for the first series>] [--reference <expert SEG/RTSTRUCT>]
  *
  * Each folder is one CT series (e.g. the test and retest scans of one RIDER
  * patient). DICOM Part 10 files are copied to <out>/t1/, <out>/t2/, ... and a
@@ -22,6 +23,8 @@ const flag = (name, fallback) => {
 };
 const out = resolve(flag('--out', 'public/sample'));
 const title = flag('--title', 'RIDER Lung CT sample (public, de-identified)');
+const aiFile = flag('--ai', undefined);
+const referenceFile = flag('--reference', undefined);
 const folders = args;
 
 if (folders.length === 0) {
@@ -73,11 +76,25 @@ folders.forEach((folder, i) => {
   console.log(`${sub}: ${dicom.length} DICOM files from ${src}`);
 });
 
+const extras = {};
+for (const [key, file] of [['ai', aiFile], ['reference', referenceFile]]) {
+  if (!file) continue;
+  const src = resolve(file);
+  if (!existsSync(src) || !isDicomPart10(src)) {
+    console.error(`--${key}: not a DICOM file: ${src}`);
+    process.exit(1);
+  }
+  copyFileSync(src, join(out, `${key}.dcm`));
+  extras[key] = `${key}.dcm`;
+  console.log(`${key}: ${src}`);
+}
+
 writeFileSync(
   join(out, 'manifest.json'),
   JSON.stringify(
     {
       title,
+      ...extras,
       attribution:
         'RIDER Lung CT, The Cancer Imaging Archive (TCIA), CC BY 4.0. https://www.cancerimagingarchive.net/collection/rider-lung-ct/',
       files: manifestFiles,

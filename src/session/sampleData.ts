@@ -18,6 +18,10 @@ export interface SampleManifest {
   title: string;
   attribution: string;
   files: string[];
+  /** Optional AI result for the sample (DICOM SEG, computed offline), loaded as AI candidates. */
+  ai?: string;
+  /** Optional expert outline for the sample (DICOM SEG/RTSTRUCT), loaded as the expert reference. */
+  reference?: string;
 }
 
 const PARALLEL_DOWNLOADS = 8;
@@ -26,6 +30,17 @@ export const SAMPLE_BASE_URL: string = (import.meta.env.VITE_SAMPLE_BASE_URL as 
 
 function join(base: string, path: string): string {
   return `${base.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+}
+
+export function sampleUrl(path: string): string {
+  return join(SAMPLE_BASE_URL, path);
+}
+
+/** Downloads one extra sample file (AI result, expert outline) as a File. */
+export async function fetchSampleFile(path: string, signal?: AbortSignal): Promise<File> {
+  const response = await fetch(sampleUrl(path), { signal });
+  if (!response.ok) throw new Error(`${path} could not be downloaded (HTTP ${response.status}).`);
+  return new File([await response.blob()], path.split('/').pop() ?? path, { type: 'application/dicom' });
 }
 
 export async function fetchSampleManifest(signal?: AbortSignal): Promise<SampleManifest | undefined> {

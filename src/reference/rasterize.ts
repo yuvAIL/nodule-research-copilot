@@ -4,22 +4,26 @@ import type { Contour, ReferenceObject, SegReference } from './types';
 
 /**
  * Places an expert outline on the open CT series' voxel grid, using patient
- * coordinates only (no assumptions about file order). The result is a separate,
- * read-only labelmap: label n = the n-th segment of the reference object.
+ * coordinates only (no assumptions about file order). Each segment is placed on
+ * its own (segments of one file may overlap, e.g. a manual and an automatic
+ * outline of the same tumour) and kept as a sparse list of voxel indices.
  */
 export interface RasterSegment {
+  /** 1-based position of the segment in the file. */
   label: number;
   /** SegmentNumber / ROINumber in the file. */
   number: number;
   name: string;
+  algorithmType?: string;
   voxelCount: number;
   /** Slice range containing the segment (kMin > kMax when it is empty). */
   kMin: number;
   kMax: number;
+  /** Global voxel indices (ascending). */
+  voxels: Int32Array;
 }
 
 export interface RasterizedReference {
-  labelmap: Labelmap;
   segments: RasterSegment[];
   warnings: string[];
 }
@@ -34,30 +38,51 @@ function planeOffset(g: VolumeGeometry, k: number, p: Vec3): number {
 }
 
 export function rasterizeReference(ref: ReferenceObject, g: VolumeGeometry): RasterizedReference {
-  const labelmap = new Labelmap(g);
-  const warnings: string[] = [];
-  const labelOf = new Map<number, number>();
-  const segments: RasterSegment[] = [];
-  ref.segments.slice(0, 255).forEach((s, idx) => {
-    labelOf.set(s.number, idx + 1);
-    segments.push({ label: idx + 1, number: s.number, name: s.name, voxelCount: 0, kMin: Infinity, kMax: -Infinity });
+  const work = new Labelmap(g);
+  const warnings = new Set<string>();
+  const segments = ref.segments.map((s, idx): RasterSegment => {
+    const only = new Map([[s.number, 1]]);
+    const w: string[] = [];
+    if (ref.kind === 'SEG') rasterizeSeg(ref, g, work, only, w);
+    else rasterizeContours(ref.contours, g, work, only, w);
+    for (const x of w) warnings.add(`${s.name}: ${x}`);
+    const voxels: number[] = [];
+    let kMin = Infinity;
+    let kMax = -Infinity;
+    const data = work.data;
+    for (let p = 0; p < data.length; p++) {
+      if (!data[p]) continue;
+      voxels.push(p);
+      data[p] = 0;
+      const k = Math.floor(p / work.sliceSize);
+      if (k < kMin) kMin = k;
+      if (k > kMax) kMax = k;
+    }
+    return {
+      label: idx + 1,
+      number: s.number,
+      name: s.name,
+      algorithmType: s.algorithmType,
+      voxelCount: voxels.length,
+      kMin,
+      kMax,
+      voxels: Int32Array.from(voxels),
+    };
   });
-  if (ref.segments.length > 255) warnings.push(`Only the first 255 of ${ref.segments.length} segments are shown.`);
+  return { segments, warnings: [...warnings] };
+}
 
-  if (ref.kind === 'SEG') rasterizeSeg(ref, g, labelmap, labelOf, warnings);
-  else rasterizeContours(ref.contours, g, labelmap, labelOf, warnings);
+/** A labelmap containing only the given segment (value `label`), for display, measuring and comparing. */
+export function segmentLabelmap(g: Pick<VolumeGeometry, 'cols' | 'rows' | 'slices'>, segment: RasterSegment, label = 1): Labelmap {
+  const lm = new Labelmap(g);
+  for (const p of segment.voxels) lm.data[p] = label;
+  return lm;
+}
 
-  for (let p = 0; p < labelmap.data.length; p++) {
-    const l = labelmap.data[p] as number;
-    if (!l) continue;
-    const s = segments[l - 1];
-    if (!s) continue;
-    s.voxelCount++;
-    const k = Math.floor(p / labelmap.sliceSize);
-    if (k < s.kMin) s.kMin = k;
-    if (k > s.kMax) s.kMax = k;
-  }
-  return { labelmap, segments, warnings };
+/** The segment to compare with by default: the manual one if the file says so, else the largest. */
+export function defaultSegment(segments: RasterSegment[]): RasterSegment | undefined {
+  const placed = segments.filter((s) => s.voxelCount > 0);
+  return placed.find((s) => /^MANUAL$/i.test(s.algorithmType ?? '')) ?? placed.sort((a, b) => b.voxelCount - a.voxelCount)[0];
 }
 
 function rasterizeSeg(

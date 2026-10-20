@@ -3,7 +3,7 @@ import { Labelmap } from '../measure/labelmap';
 import { makeGeometry } from '../measure/phantoms';
 import type { Vec3 } from '../measure/volume';
 import { bestReferenceLabel, compareToReference } from './compare';
-import { fillPolygon, rasterizeReference } from './rasterize';
+import { defaultSegment, fillPolygon, rasterizeReference, segmentLabelmap } from './rasterize';
 import type { RtStructReference, SegReference } from './types';
 
 function circle(cx: number, cy: number, z: number, r: number, n = 64): Vec3[] {
@@ -32,10 +32,11 @@ describe('rasterizeReference', () => {
     };
     const r = rasterizeReference(ref, g);
     expect(r.warnings).toEqual([]);
-    expect(r.segments[0]?.label).toBe(1);
-    expect(r.labelmap.slicesWithLabel(1)).toEqual([5, 6, 7]);
-    expect([r.segments[0]?.kMin, r.segments[0]?.kMax]).toEqual([5, 7]);
-    const areaMm2 = (r.labelmap.sliceView(6).reduce((a, b) => a + b, 0) * 0.25);
+    const seg = r.segments[0]!;
+    const lm = segmentLabelmap(g, seg);
+    expect(lm.slicesWithLabel(1)).toEqual([5, 6, 7]);
+    expect([seg.kMin, seg.kMax]).toEqual([5, 7]);
+    const areaMm2 = lm.sliceView(6).reduce((a, b) => a + b, 0) * 0.25;
     expect(Math.abs(areaMm2 - Math.PI * 100) / (Math.PI * 100)).toBeLessThan(0.03);
   });
 
@@ -47,7 +48,7 @@ describe('rasterizeReference', () => {
       contours: [{ roiNumber: 1, points: circle(25, 25, -3.4, 5) }, { roiNumber: 1, points: circle(25, 25, -100, 5) }],
     };
     const r = rasterizeReference(ref, g);
-    expect(r.labelmap.slicesWithLabel(1)).toEqual([2]);
+    expect(segmentLabelmap(g, r.segments[0]!).slicesWithLabel(1)).toEqual([2]);
     expect(r.warnings.length).toBe(1);
   });
 
@@ -68,10 +69,32 @@ describe('rasterizeReference', () => {
       frames: [{ segmentNumber: 1, position: [0, 0, -8], mask }],
     };
     const r = rasterizeReference(seg, g);
-    expect(r.labelmap.slicesWithLabel(1)).toEqual([4]);
-    const areaMm2 = r.labelmap.sliceView(4).reduce((a, b) => a + b, 0) * 0.25;
+    const lm = segmentLabelmap(g, r.segments[0]!);
+    expect(lm.slicesWithLabel(1)).toEqual([4]);
+    const areaMm2 = lm.sliceView(4).reduce((a, b) => a + b, 0) * 0.25;
     expect(Math.abs(areaMm2 - 25)).toBeLessThanOrEqual(5); // nearest-neighbour edge effects
-    expect(r.segments[0]?.voxelCount).toBe(r.labelmap.sliceView(4).reduce((a, b) => a + b, 0));
+    expect(r.segments[0]?.voxelCount).toBe(lm.sliceView(4).reduce((a, b) => a + b, 0));
+  });
+
+  it('keeps overlapping segments separate and prefers the manual one', () => {
+    // Regression: a manual and an automatic outline of the same tumour overlap almost completely.
+    const ref: RtStructReference = {
+      kind: 'RTSTRUCT',
+      sopInstanceUid: 'x',
+      segments: [
+        { number: 1, name: 'GTV', algorithmType: 'MANUAL' },
+        { number: 2, name: 'GTV', algorithmType: 'AUTOMATIC' },
+      ],
+      contours: [
+        { roiNumber: 1, points: circle(25, 25, -12, 10) },
+        { roiNumber: 2, points: circle(26, 25, -12, 10) },
+      ],
+    };
+    const r = rasterizeReference(ref, g);
+    const [manual, auto] = r.segments;
+    expect(Math.abs(manual!.voxelCount - auto!.voxelCount)).toBeLessThanOrEqual(8);
+    expect(manual!.voxelCount).toBeGreaterThan(1000);
+    expect(defaultSegment(r.segments)?.algorithmType).toBe('MANUAL');
   });
 });
 

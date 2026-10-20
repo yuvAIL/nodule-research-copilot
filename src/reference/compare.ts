@@ -31,6 +31,13 @@ function bounds(lm: Labelmap, range?: SliceRange): [number, number] {
   return [kMin * lm.sliceSize, (kMax + 1) * lm.sliceSize];
 }
 
+/** Number of voxels of `voxels` (a reference segment) that carry `appLabel` in the app labelmap. */
+export function overlapCount(app: Labelmap, appLabel: number, voxels: Int32Array): number {
+  let n = 0;
+  for (const p of voxels) if (app.data[p] === appLabel) n++;
+  return n;
+}
+
 /** Number of overlapping voxels between an app label and every reference label. */
 export function overlapByReferenceLabel(app: Labelmap, appLabel: number, ref: Labelmap, range?: SliceRange): Map<number, number> {
   const out = new Map<number, number>();

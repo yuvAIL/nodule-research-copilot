@@ -4,7 +4,22 @@ import type { FindingMatch } from './priors';
 export type FindingStatus = 'unreviewed' | 'approved' | 'rejected';
 
 /** Where the outline came from. Edits by the researcher are tracked separately (`edited`). */
-export type FindingSource = 'click' | 'manual';
+export type FindingSource = 'click' | 'manual' | 'ai';
+
+/** Which model proposed an AI candidate (read from the result file, never assumed). */
+export interface AiProvenance {
+  /** e.g. "TotalSegmentator" (DICOM Manufacturer / software of the SEG file). */
+  model: string;
+  /** Segment the candidate came from, e.g. "lung_nodules". */
+  segment: string;
+  version?: string;
+  /** SOPInstanceUID of the AI result file (prevents importing it twice). */
+  fileUid: string;
+  /** Date the AI result file was created (DICOM ContentDate/SeriesDate), YYYY-MM-DD. */
+  runDate?: string;
+  /** 1-based index of the connected component, largest first. */
+  component: number;
+}
 
 export type NoduleType = '' | 'solid' | 'part-solid' | 'ground-glass' | 'calcified' | 'other';
 export type Lobe = '' | 'RUL' | 'RML' | 'RLL' | 'LUL' | 'Lingula' | 'LLL';
@@ -50,11 +65,24 @@ export interface Finding {
   /** Researcher-confirmed link to the same nodule on an earlier scan. */
   match?: FindingMatch;
   timeline: TimelineEvent[];
+  /** Set for AI candidates. */
+  ai?: AiProvenance;
+  /** Rough location from the AI lung mask, e.g. "Right lung · lower third". Always an estimate. */
+  positionEstimate?: string;
+}
+
+export function aiLabel(ai: AiProvenance): string {
+  return `${ai.model}${ai.version ? ` ${ai.version}` : ''} · ${ai.segment}${ai.runDate ? ` · run ${ai.runDate}` : ''}`;
 }
 
 export function provenanceLabel(f: Finding): string {
-  const base = f.source === 'click' ? 'Semi-automatic (click segmentation)' : 'Manual outline (brush)';
-  return f.edited && f.source === 'click' ? `${base}, edited by researcher` : base;
+  const base =
+    f.source === 'ai' && f.ai
+      ? `AI candidate (${aiLabel(f.ai)})`
+      : f.source === 'click'
+        ? 'Semi-automatic (click segmentation)'
+        : 'Manual outline (brush)';
+  return f.edited && f.source !== 'manual' ? `${base}, edited by researcher` : base;
 }
 
 /** Seconds from creation to approval, or undefined while not approved. */

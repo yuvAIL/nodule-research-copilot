@@ -9,6 +9,8 @@ export interface ReferenceSegment {
   /** SegmentNumber (SEG) or ROINumber (RTSTRUCT). */
   number: number;
   name: string;
+  /** SegmentAlgorithmType (SEG) or ROI generation algorithm (RTSTRUCT): MANUAL / SEMIAUTOMATIC / AUTOMATIC. */
+  algorithmType?: string;
 }
 
 /** Binary frames of a DICOM SEG (one frame = one segment on one image plane). */
@@ -34,6 +36,11 @@ interface ReferenceBase {
   seriesDescription?: string;
   /** Who/what made it, as written in the file (manufacturer, software, creator). */
   creator?: string;
+  manufacturer?: string;
+  modelName?: string;
+  softwareVersion?: string;
+  /** ContentDate (or SeriesDate) of the file, YYYY-MM-DD. */
+  contentDate?: string;
   segments: ReferenceSegment[];
 }
 

@@ -1,13 +1,23 @@
 # Nodule Research Copilot
 
-A browser tool for a thoracic oncology research lab: open a chest CT, click a nodule, get a 3-D outline with
-long axis, short axis and volume in millimetres, correct it with a brush, approve it, and export the lab's
-spreadsheet row, with earlier measurements of the same patient shown next to the new ones.
+A browser tool for a thoracic oncology research lab: open a chest CT and get an **AI worklist** of nodule
+candidates, each already outlined in 3-D and measured (long axis, short axis, volume in mm). The researcher
+accepts, rejects or corrects each one with the keyboard, adds anything the AI missed with one click, and exports
+the lab's spreadsheet rows — with earlier measurements of the same patient shown next to the new ones.
 
 > **Research prototype. Not a medical device. Not for diagnosis or clinical decisions.**
 
-**Live:** <https://nodule-research-copilot.pages.dev> (Chrome or Edge recommended). Click **Load sample CT**
-to try it on a public, de-identified scan.
+**Live:** <https://nodule-research-copilot.pages.dev> (Chrome or Edge recommended).
+
+### 60-second tour
+1. Click **Load sample CT** — a public RIDER scan opens with its precomputed AI result and the expert's outline.
+2. The **Worklist** on the right says *"AI found 2"*. The first candidate is selected and shown on the image.
+3. Press **A** to accept (jumps to the next one), **R** to reject, **J/K** to move, **B/E** to brush/erase the outline.
+4. Missed one? Press **S** and click it — it is outlined and measured, and logged as *added by you*.
+5. Pick Type and Lobe, then **Export CSV** — one row per accepted nodule, in the lab's columns, with provenance.
+
+**Results:** see [`docs/EVALUATION.md`](docs/EVALUATION.md) — accuracy on 31 patients / 59 scans against expert outlines,
+repeatability, AI result, failure modes, and how time saved is measured.
 
 ---
 
@@ -15,6 +25,7 @@ to try it on a public, de-identified scan.
 
 | Step | In the app |
 | --- | --- |
+| Review AI candidates | **Load AI result…** (a DICOM SEG from TotalSegmentator `lung_nodules`, run offline) or a SEG file inside the opened folder. Each connected piece becomes a candidate *to review*, labelled with the model, version and run date. A/R/J/K review; nothing is exported until accepted. |
 | Open a scan | **Open CT folder…** / **Open files…** / drag a folder in, or **Load sample CT**. Series are grouped and ordered by 3-D position; gaps and duplicates are flagged. After a reload (⌘R) the last scan reopens at the same slice. |
 | Measure | **Click nodule (S)** → click inside the nodule. A classical (non-AI) region-grow builds a 3-D outline and computes RECIST-style long/short axes on the slice where the nodule is largest, plus volume. |
 | Correct | **Brush (B)** / **Erase (E)**, size `[` `]`, optional 3-D sphere brush, **Undo (⌘Z)**, **Reset**, threshold slider + re-segment. Edited findings are labelled “edited by researcher”. |
@@ -55,8 +66,12 @@ Attribution (the IDC download metadata states **CC BY 4.0**; older TCIA wiki pag
 - Clark K, et al. *The Cancer Imaging Archive (TCIA): maintaining and operating a public information
   repository.* J Digit Imaging 2013;26(6):1045–1057. <https://doi.org/10.1007/s10278-013-9622-7>
 
-The sample is patient **RIDER-1129164940**, 2006-09-05, series 100 (262 slices, 1.25 mm), downloaded via the
-NCI Imaging Data Commons. DICOM files are **not** in this repository.
+The sample is patient **RIDER-1129164940**, 2006-09-20 TEST scan (series 4, 236 slices, 1.25 mm), with its
+RIDER-LungCT-Seg expert outline and a TotalSegmentator `lung_nodules` result computed offline — all downloaded via
+the NCI Imaging Data Commons. DICOM files are **not** in this repository.
+
+- **TotalSegmentator** — Wasserthal J, et al. *TotalSegmentator: robust segmentation of 104 anatomic structures in CT
+  images.* Radiology: Artificial Intelligence 2023. <https://doi.org/10.1148/ryai.230024> (Apache-2.0).
 
 ---
 
@@ -124,7 +139,9 @@ src/
 
 ## Known limitations
 
-- **Segmentation is classical, not AI**, and is tuned for solid nodules. On large masses touching the hilum
+- **AI accuracy is shown on N = 1 scan so far** (Dice 0.87 vs expert); the 59-scan run is in progress.
+- **Click segmentation is classical, not AI**, and is the fallback: about one click in three fails (Dice < 0.2) on the
+  RIDER cohort, mostly on lesions touching the chest wall. It is tuned for solid nodules. On large masses touching the hilum
   the outline can follow hilar structures on some slices and needs manual erasing. Ground-glass nodules need a
   lower threshold (slider) and are less reliable. Accuracy vs. expert outlines: see `docs/EVALUATION.md`.
 - **Follow-up “same nodule?” suggestion** uses closest patient-coordinate position — a hint, not registration.

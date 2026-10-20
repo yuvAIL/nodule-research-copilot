@@ -73,7 +73,13 @@ export function toRow(scan: ScanInfo, f: Finding): ResearchRow {
   const prior = f.match?.prior;
   const delta = prior && m ? compare(prior, { longMm: m.longMm, shortMm: m.shortMm, volumeMm3: m.volumeMm3 }) : undefined;
   const seconds = secondsToApproval(f);
-  const source = f.source === 'click' ? (f.edited ? 'semi-auto, edited' : 'semi-auto') : 'manual';
+  const base =
+    f.source === 'ai'
+      ? `AI (${[f.ai?.model ?? 'model', f.ai?.version, f.ai?.segment].filter(Boolean).join(' ')})`
+      : f.source === 'click'
+        ? 'semi-auto'
+        : 'manual';
+  const source = f.edited && f.source !== 'manual' ? `${base}, edited` : base;
   return {
     'Patient ID': scan.patientId,
     Date: scan.studyDate,

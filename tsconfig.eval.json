@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": ".eval-build",
+    "rootDir": "src",
+    "declaration": false,
+    "noEmit": false
+  },
+  "include": ["src/reference/*.ts", "src/measure/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
+}

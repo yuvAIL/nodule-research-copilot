@@ -45,6 +45,21 @@ function vec3(values: number[], what: string): Vec3 {
   return [values[0] as number, values[1] as number, values[2] as number];
 }
 
+function dateOf(ds: DS): string | undefined {
+  const d = str(ds, 'x00080023') ?? str(ds, 'x00080021');
+  return d && /^\d{8}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : undefined;
+}
+
+function sourceInfo(ds: DS) {
+  return {
+    creator: creatorOf(ds),
+    manufacturer: str(ds, 'x00080070'),
+    modelName: str(ds, 'x00081090'),
+    softwareVersion: str(ds, 'x00181020'),
+    contentDate: dateOf(ds),
+  };
+}
+
 function creatorOf(ds: DS): string | undefined {
   const parts = [str(ds, 'x00080070'), str(ds, 'x00081090'), str(ds, 'x00181020'), str(ds, 'x30060004')].filter(Boolean);
   return parts.length ? parts.join(' · ') : undefined;
@@ -81,6 +96,7 @@ function parseSeg(ds: DS, bytes: Uint8Array): ReferenceObject {
   const segments: ReferenceSegment[] = items(ds, 'x00620002').map((it) => ({
     number: it.uint16('x00620004') ?? 0,
     name: str(it, 'x00620005') ?? `Segment ${it.uint16('x00620004') ?? '?'}`,
+    algorithmType: str(it, 'x00620008'),
   }));
 
   const shared = first(ds, 'x52009229');
@@ -127,7 +143,7 @@ function parseSeg(ds: DS, bytes: Uint8Array): ReferenceObject {
     referencedSeriesUid: str(first(ds, 'x00081115'), 'x0020000e'),
     frameOfReferenceUid: str(ds, 'x00200052'),
     seriesDescription: str(ds, 'x0008103e'),
-    creator: creatorOf(ds),
+    ...sourceInfo(ds),
     segments,
     rows,
     cols,
@@ -142,6 +158,7 @@ function parseRtStruct(ds: DS): ReferenceObject {
   const segments: ReferenceSegment[] = items(ds, 'x30060020').map((it) => ({
     number: Number.parseInt(str(it, 'x30060022') ?? '0', 10),
     name: str(it, 'x30060026') ?? `ROI ${str(it, 'x30060022') ?? '?'}`,
+    algorithmType: str(it, 'x30060036'),
   }));
   const contours: Contour[] = [];
   let skipped = 0;
@@ -169,7 +186,7 @@ function parseRtStruct(ds: DS): ReferenceObject {
     referencedSeriesUid: str(series, 'x0020000e'),
     frameOfReferenceUid: str(first(ds, 'x30060010'), 'x00200052'),
     seriesDescription: str(ds, 'x0008103e') ?? str(ds, 'x30060002'),
-    creator: creatorOf(ds),
+    ...sourceInfo(ds),
     segments,
     contours,
   };

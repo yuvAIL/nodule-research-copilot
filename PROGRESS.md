@@ -3,10 +3,26 @@
 Deadline (own target): **Wed 21 Oct 2026, 18:00 (IL)**. Full brief: `docs/MISSION.md`.
 Live: **https://nodule-research-copilot.pages.dev** (Cloudflare Pages, static).
 
+## AI worklist + evaluation — Tue 20 Oct, 15:10 ✅ (deploy pending)
+
+**BUILT** — AI candidates: TotalSegmentator 2.18.0 `lung_nodules` (offline, Mac MPS, ~2 min/scan) → DICOM SEG →
+app splits it into connected pieces → findings with source "AI" (model/version/run date shown), position estimate
+from the AI lung mask. Worklist: "AI found N · M reviewed · m:ss on this scan", A/R auto-advance, J/K, "?" sheet.
+SEG/RTSTRUCT files in an opened folder are offered as AI result or expert outline. Sample = 2006-09-20 TEST scan +
+AI result + expert outline (auto-loaded). Design system v2 (dark clinical, colour + symbol). `npm run eval`
+(resumable) + docs/EVALUATION.md.
+**VERIFIED** — 54 unit tests in the harness; tsc + ESLint on the Mac; in the browser (dev server): sample → AI found 2
+→ A accepts N1 and jumps to N2 → R rejects N2 → CSV has 1 row "AI (TotalSegmentator 2.18.0 lung_nodules)";
+expert comparison N1 Dice 0.87. Evaluation on 31 patients / 59 scans (numbers in docs/EVALUATION.md).
+**FOUND & FIXED** — overlapping expert segments overwrote each other (manual 55 mL showed as 1.8 mL).
+**PENDING** — AI on all 59 scans; Yuval's 3 timed runs; Daniel review pack; deploy.
+
 ## Assumptions (made without asking — revisit if wrong)
 - Host = Cloudflare Pages (free, static, custom headers via `public/_headers`, per-file limit fits DICOM slices).
 - The public sample (RIDER-1129164940, CC BY) may be served from the live site; it is not in git.
 - Licence wording: CC BY 4.0 as stated in the IDC download metadata (older TCIA wiki pages say CC BY 3.0).
+- Evaluation truth = the SEG segment coded MANUAL; RTSTRUCT names disagree for some patients (documented).
+- AI candidates smaller than 5 mm³ are counted but not listed (noise); the threshold is shown in the UI message.
 
 ## Deploy — Tue 20 Oct, 14:00 ✅
 

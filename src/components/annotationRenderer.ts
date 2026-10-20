@@ -23,12 +23,14 @@ export interface AnnotationScene {
 type Rgb = [number, number, number];
 const SELECTED: Rgb = [95, 200, 240];
 const APPROVED: Rgb = [92, 214, 140];
-const UNREVIEWED: Rgb = [240, 190, 80];
+const UNREVIEWED: Rgb = [240, 180, 76];
+const AI_CANDIDATE: Rgb = [165, 148, 255];
 
 function colorFor(f: Finding, selectedId: string | undefined): Rgb | undefined {
   if (f.status === 'rejected') return undefined;
   if (f.id === selectedId) return SELECTED;
-  return f.status === 'approved' ? APPROVED : UNREVIEWED;
+  if (f.status === 'approved') return APPROVED;
+  return f.source === 'ai' ? AI_CANDIDATE : UNREVIEWED;
 }
 
 const EXPERT: Rgb = [236, 110, 220];
@@ -168,7 +170,7 @@ export function drawAnnotations(ctx: CanvasRenderingContext2D, view: ViewMapper,
   if (ref && k >= 0 && k < ref.labelmap.slices) {
     const slice = ref.labelmap.sliceView(k);
     const { cols, rows } = ref.labelmap;
-    const tagAt = new Map<number, [number, number]>();
+    const tagAt = new Map<number, [number, number]>(); // label -> bottom-most pixel (finding tags sit at the top)
     let any = false;
     for (let p = 0; p < slice.length; p++) {
       if (slice[p] !== 0) {
@@ -191,7 +193,7 @@ export function drawAnnotations(ctx: CanvasRenderingContext2D, view: ViewMapper,
             const p = j * cols + i;
             const l = slice[p] as number;
             if (!l) continue;
-            if (!tagAt.has(l)) tagAt.set(l, [i, j]);
+            tagAt.set(l, [i, j]);
             const edge =
               i === 0 || j === 0 || i === cols - 1 || j === rows - 1 ||
               slice[p - 1] !== l || slice[p + 1] !== l || slice[p - cols] !== l || slice[p + cols] !== l;
@@ -218,7 +220,7 @@ export function drawAnnotations(ctx: CanvasRenderingContext2D, view: ViewMapper,
         ctx.restore();
         for (const [l, top] of tagAt) {
           const p = view.voxelToCanvas(top[0], top[1]);
-          drawTag(ctx, p[0] - 40, p[1] - 8, `Expert: ${ref.names[l - 1] ?? l}`, EXPERT);
+          drawTag(ctx, p[0] - 40, p[1] + 24, `Expert: ${ref.names[l - 1] ?? l}`, EXPERT);
         }
       }
     }

@@ -3,7 +3,7 @@ import { measureLabel } from '../measure/measure';
 import { segmentFromSeed, type SegmentOptions } from '../measure/segment';
 import type { Volume } from '../measure/volume';
 import { idbGet, idbSet } from '../session/idb';
-import type { Finding, TimelineEvent } from './types';
+import type { AiProvenance, Finding, TimelineEvent } from './types';
 
 /**
  * All findings of one series: their shared labelmap, measurements, review
@@ -254,6 +254,70 @@ export class FindingsStore {
     this.remeasure(finding.id);
     this.changed();
     return { ok: true, id: finding.id, created: true };
+  }
+
+  /**
+   * Adds AI candidates as findings to review (status "to review", source "ai").
+   * Candidates already imported from the same file are skipped; voxels that belong
+   * to an existing finding are never overwritten.
+   */
+  addAiCandidates(
+    candidates: { voxels: Int32Array; position?: string; component: number }[],
+    ai: Omit<AiProvenance, 'component'>,
+  ): { added: number; skipped: number; firstId?: string } {
+    let added = 0;
+    let skipped = 0;
+    let firstId: string | undefined;
+    const sliceSize = this.labelmap.sliceSize;
+    const now = Date.now();
+    for (const c of candidates) {
+      if (this.findings.some((f) => f.ai?.fileUid === ai.fileUid && f.ai.component === c.component)) {
+        skipped++;
+        continue;
+      }
+      const label = this.freeLabel();
+      if (label === undefined) break;
+      let written = 0;
+      let kMin = Infinity;
+      let kMax = -Infinity;
+      for (const v of c.voxels) {
+        if (this.labelmap.data[v] !== 0) continue;
+        this.labelmap.data[v] = label;
+        written++;
+        const k = Math.floor(v / sliceSize);
+        if (k < kMin) kMin = k;
+        if (k > kMax) kMax = k;
+      }
+      if (written === 0) {
+        skipped++;
+        continue;
+      }
+      const finding: Finding = {
+        id: makeId(),
+        label,
+        name: `N${this.nextNumber++}`,
+        source: 'ai',
+        edited: false,
+        status: 'unreviewed',
+        kMin,
+        kMax,
+        type: '',
+        lobe: '',
+        notes: '',
+        timeline: [{ t: now, action: 'created' }],
+        ai: { ...ai, component: c.component },
+        positionEstimate: c.position,
+      };
+      this.findings = [...this.findings, finding];
+      this.remeasure(finding.id);
+      firstId ??= finding.id;
+      added++;
+    }
+    if (added) {
+      this.selectedId = firstId;
+      this.changed();
+    }
+    return { added, skipped, firstId };
   }
 
   /** Re-runs click segmentation of a finding with new options (e.g. edge threshold). */

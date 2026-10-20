@@ -1,0 +1,155 @@
+{
+  "generatedAt": "2026-10-20T11:44:05.541Z",
+  "complete": true,
+  "protocol": "scripts/evaluate.cjs header",
+  "seedsPerSeries": 5,
+  "development": {
+    "patients": 11,
+    "lesions": 20,
+    "centreClick": {
+      "diceMedian": 0.3185432415160937,
+      "diceQ1": 0.22760323052220385,
+      "diceQ3": 0.6261001055231008,
+      "diceAtLeast07": 4,
+      "absLongDiffMmMedian": 15.117727837911968,
+      "absVolDiffPctMedian": 83.16137281462446,
+      "leaked": 5
+    },
+    "allClicks": {
+      "n": 100,
+      "failed": 0,
+      "diceMedian": 0.23636547643750103,
+      "diceBelow02": 44,
+      "medianSpreadPerLesion": 0.2529501151773794,
+      "msMedian": 113.5,
+      "msMax": 619
+    },
+    "riderAutoVsManualDiceMedian": 0.9196307926539157,
+    "repeatability": {
+      "pairs": 9,
+      "oursVolDiffPctMedian": 15.243814040976126,
+      "expertVolDiffPctMedian": 15.387823723837876,
+      "oursLongDiffMmMedian": 1.7132162450166604,
+      "expertLongDiffMmMedian": 1.3651960506115444
+    },
+    "nodules (expert long axis ≤ 30 mm)": {
+      "lesions": 6,
+      "centreClick": {
+        "diceMedian": 0.23553234615616608,
+        "diceQ1": 0.048265460030165915,
+        "diceQ3": 0.29906876790830944,
+        "diceAtLeast07": 0,
+        "absLongDiffMmMedian": 14.713457829808391,
+        "absVolDiffPctMedian": 97.73582065019966,
+        "leaked": 0
+      },
+      "allClicks": {
+        "n": 30,
+        "failed": 0,
+        "diceMedian": 0.07979135710228147,
+        "diceBelow02": 18,
+        "medianSpreadPerLesion": 0.10703992640117946,
+        "msMedian": 68.5,
+        "msMax": 434
+      },
+      "riderAutoVsManualDiceMedian": 0.7929131891960111
+    },
+    "masses (> 30 mm)": {
+      "lesions": 14,
+      "centreClick": {
+        "diceMedian": 0.5861728634747494,
+        "diceQ1": 0.2423031915143597,
+        "diceQ3": 0.7041196118975664,
+        "diceAtLeast07": 4,
+        "absLongDiffMmMedian": 16.29040158325599,
+        "absVolDiffPctMedian": 53.34175937755531,
+        "leaked": 5
+      },
+      "allClicks": {
+        "n": 70,
+        "failed": 0,
+        "diceMedian": 0.28987473121713697,
+        "diceBelow02": 26,
+        "medianSpreadPerLesion": 0.4245336396684379,
+        "msMedian": 147.5,
+        "msMax": 619
+      },
+      "riderAutoVsManualDiceMedian": 0.9592157449674474
+    }
+  },
+  "held-out": {
+    "patients": 20,
+    "lesions": 39,
+    "centreClick": {
+      "diceMedian": 0.6431754196934413,
+      "diceQ1": 0.46722652859178665,
+      "diceQ3": 0.809945217024863,
+      "diceAtLeast07": 16,
+      "absLongDiffMmMedian": 10.221312101876144,
+      "absVolDiffPctMedian": 49.071971180202056,
+      "leaked": 11
+    },
+    "allClicks": {
+      "n": 195,
+      "failed": 0,
+      "diceMedian": 0.5944400542245694,
+      "diceBelow02": 59,
+      "medianSpreadPerLesion": 0.18088538913344454,
+      "msMedian": 115,
+      "msMax": 758
+    },
+    "riderAutoVsManualDiceMedian": 0.9196277967624408,
+    "repeatability": {
+      "pairs": 19,
+      "oursVolDiffPctMedian": 3.7161701984013056,
+      "expertVolDiffPctMedian": 17.940016707056248,
+      "oursLongDiffMmMedian": 1.3340272425127466,
+      "expertLongDiffMmMedian": 3.702524132579164
+    },
+    "nodules (expert long axis ≤ 30 mm)": {
+      "lesions": 12,
+      "centreClick": {
+        "diceMedian": 0.7616294024306863,
+        "diceQ1": 0.5314369959240308,
+        "diceQ3": 0.809945217024863,
+        "diceAtLeast07": 8,
+        "absLongDiffMmMedian": 1.6088926700742556,
+        "absVolDiffPctMedian": 30.57076822589559,
+        "leaked": 1
+      },
+      "allClicks": {
+        "n": 60,
+        "failed": 0,
+        "diceMedian": 0.7495338719701679,
+        "diceBelow02": 16,
+        "medianSpreadPerLesion": 0.0589870175503904,
+        "msMedian": 101,
+        "msMax": 586
+      },
+      "riderAutoVsManualDiceMedian": 0.9116205529607728
+    },
+    "masses (> 30 mm)": {
+      "lesions": 27,
+      "centreClick": {
+        "diceMedian": 0.5963825115544292,
+        "diceQ1": 0.44003491255697536,
+        "diceQ3": 0.7702851920953433,
+        "diceAtLeast07": 8,
+        "absLongDiffMmMedian": 15.45478349085272,
+        "absVolDiffPctMedian": 55.04037685060565,
+        "leaked": 10
+      },
+      "allClicks": {
+        "n": 135,
+        "failed": 0,
+        "diceMedian": 0.5797522738699209,
+        "diceBelow02": 43,
+        "medianSpreadPerLesion": 0.2416206662893326,
+        "msMedian": 144,
+        "msMax": 758
+      },
+      "riderAutoVsManualDiceMedian": 0.9196277967624408
+    }
+  },
+  "errors": []
+}

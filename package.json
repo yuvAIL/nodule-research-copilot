@@ -17,7 +17,8 @@
     "check": "npm run typecheck && npm run lint && npm run test && vite build",
     "diagnose:builtins": "node scripts/find-node-builtins.mjs",
     "dev:clean": "vite --force",
-    "prepare:sample": "node scripts/prepare-sample.mjs"
+    "prepare:sample": "node scripts/prepare-sample.mjs",
+    "eval": "tsc -p tsconfig.eval.json && node scripts/evaluate.cjs"
   },
   "dependencies": {
     "@cornerstonejs/core": "5.13.1",

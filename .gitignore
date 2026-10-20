@@ -55,3 +55,9 @@ DICOMDIR
 *.raw
 *.tcia
 *.zip
+
+# compiled evaluation build (npm run eval)
+/.eval-build/
+
+# evaluation cache (re-creatable)
+/docs/eval/cache/

@@ -25,6 +25,9 @@ interface Props {
   agreement?: AgreementView;
   onLoad: (file: File) => void;
   onShow: (show: boolean) => void;
+  /** Segment (1-based) shown on the image and used for the comparison. */
+  selected?: number;
+  onSelect: (label: number) => void;
   onClear: () => void;
   onGoTo: (sliceIndex: number) => void;
 }
@@ -32,7 +35,7 @@ interface Props {
 const signed = (v: number, digits = 1) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(digits)}`;
 
 /** Expert outline (read-only) from a DICOM SEG / RTSTRUCT, and how the selected finding agrees with it. */
-export function ReferencePanel({ ready, reference, show, error, agreement, onLoad, onShow, onClear, onGoTo }: Props) {
+export function ReferencePanel({ ready, reference, show, error, agreement, onLoad, onShow, selected, onSelect, onClear, onGoTo }: Props) {
   const input = useRef<HTMLInputElement>(null);
   return (
     <section className="panel reference">
@@ -68,13 +71,24 @@ export function ReferencePanel({ ready, reference, show, error, agreement, onLoa
             {reference.creator && <span className="muted"> · {reference.creator}</span>}
           </p>
           <label className="check">
-            <input type="checkbox" checked={show} onChange={(e) => onShow(e.target.checked)} /> Show on image (dotted
+            <input type="checkbox" checked={show} onChange={(e) => onShow(e.target.checked)} /> Show the selected outline (dotted
             magenta)
           </label>
           <ul className="reference-segments">
             {reference.segments.map((s) => (
               <li key={s.label}>
-                <span>{s.name}</span>
+                <input
+                  type="radio"
+                  name="reference-segment"
+                  aria-label={`Compare with ${s.name}`}
+                  disabled={s.voxelCount === 0}
+                  checked={selected === s.label}
+                  onChange={() => onSelect(s.label)}
+                />
+                <span>
+                  {s.name}
+                  {s.algorithmType && <span className="muted"> ({s.algorithmType.toLowerCase()})</span>}
+                </span>
                 <span className="muted">
                   {s.voxelCount === 0
                     ? 'not on this series'
