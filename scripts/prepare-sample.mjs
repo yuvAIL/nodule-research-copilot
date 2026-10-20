@@ -23,6 +23,9 @@ const flag = (name, fallback) => {
 };
 const out = resolve(flag('--out', 'public/sample'));
 const title = flag('--title', 'RIDER Lung CT sample (public, de-identified)');
+// Every preparation gets its own folder name: browsers cache /sample/* for a week, so a new
+// sample must never reuse the URLs of an old one.
+const tag = flag('--tag', `v${Date.now().toString(36)}`);
 const aiFile = flag('--ai', undefined);
 const referenceFile = flag('--reference', undefined);
 const folders = args;
@@ -66,7 +69,7 @@ folders.forEach((folder, i) => {
     console.error(`No DICOM Part 10 files found in ${src}`);
     process.exit(1);
   }
-  const sub = `t${i + 1}`;
+  const sub = `${tag}/t${i + 1}`;
   mkdirSync(join(out, sub), { recursive: true });
   dicom.forEach((path, n) => {
     const name = `${String(n + 1).padStart(4, '0')}.dcm`;
@@ -84,8 +87,9 @@ for (const [key, file] of [['ai', aiFile], ['reference', referenceFile]]) {
     console.error(`--${key}: not a DICOM file: ${src}`);
     process.exit(1);
   }
-  copyFileSync(src, join(out, `${key}.dcm`));
-  extras[key] = `${key}.dcm`;
+  mkdirSync(join(out, tag), { recursive: true });
+  copyFileSync(src, join(out, tag, `${key}.dcm`));
+  extras[key] = `${tag}/${key}.dcm`;
   console.log(`${key}: ${src}`);
 }
 
