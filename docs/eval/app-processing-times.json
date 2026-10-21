@@ -1,0 +1,42 @@
+{
+ "measuredAt": "2026-10-20T15:13:18.538Z",
+ "environment": "built app (dist of 20 Oct 2026) served from local disk over http://127.0.0.1, headless Chromium with software WebGL (SwiftShader), 2 vCPU Linux container — slower than a researcher laptop",
+ "runs": [
+  {
+   "run": 1,
+   "loadSampleToFirstImageS": 4.066,
+   "loadSampleToAiWorklistS": 11.469,
+   "acceptKeyToSavedS": 0.78,
+   "exportClickToFileS": 0.113,
+   "switchToFollowUpImageS": 0.014,
+   "switchToFollowUpAiS": 9.124,
+   "followUpPairText": [
+    "RUL (AI lobe map)↔ ▼45% vs Baseline?"
+   ]
+  },
+  {
+   "run": 2,
+   "loadSampleToFirstImageS": 4.394,
+   "loadSampleToAiWorklistS": 11.888,
+   "acceptKeyToSavedS": 0.246,
+   "exportClickToFileS": 0.289,
+   "switchToFollowUpImageS": 0.015,
+   "switchToFollowUpAiS": 8.766,
+   "followUpPairText": [
+    "RUL (AI lobe map)↔ ▼45% vs Baseline?"
+   ]
+  },
+  {
+   "run": 3,
+   "loadSampleToFirstImageS": 4.294,
+   "loadSampleToAiWorklistS": 12.272,
+   "acceptKeyToSavedS": 0.374,
+   "exportClickToFileS": 0.116,
+   "switchToFollowUpImageS": 0.012,
+   "switchToFollowUpAiS": 8.606,
+   "followUpPairText": [
+    "RUL (AI lobe map)↔ ▼45% vs Baseline?"
+   ]
+  }
+ ]
+}

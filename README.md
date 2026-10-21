@@ -19,6 +19,11 @@ the lab's spreadsheet rows — with earlier measurements of the same patient sho
 **Results:** see [`docs/EVALUATION.md`](docs/EVALUATION.md) — accuracy on 31 patients / 59 scans against expert outlines,
 repeatability, AI result, failure modes, and how time saved is measured.
 
+**Validation pack (20 Oct 2026):** [`docs/VALIDATION_AUDIT.md`](docs/VALIDATION_AUDIT.md) (which claims are verified) ·
+[`docs/CHALLENGING_NODULE_EVALUATION.md`](docs/CHALLENGING_NODULE_EVALUATION.md) (small and ground-glass nodules) ·
+[`docs/TIME_SAVINGS_EVALUATION.md`](docs/TIME_SAVINGS_EVALUATION.md) · [`docs/RESEARCHER_TEST_PROTOCOL.md`](docs/RESEARCHER_TEST_PROTOCOL.md) ·
+walkthrough slides, script and evidence register in [`deliverables/`](deliverables/).
+
 ---
 
 ## What it does
@@ -158,6 +163,8 @@ src/
 
 - **The AI misses ~1 tumour in 10** (53/59 scans found; Dice 0.76 vs expert) and some scans get many small
   unconfirmed candidates — every candidate is reviewed by the researcher, and missed ones are added with one click.
+- **The AI does not find ground-glass nodules** (LIDC-IDRI: 0 of 5; part-solid 1 of 3) and outlines small solid
+  nodules too small (every found nodule −26 % or worse in volume). See `docs/CHALLENGING_NODULE_EVALUATION.md`.
 - **Click segmentation is classical, not AI**, and is the fallback: about one click in three fails (Dice < 0.2) on the
   RIDER cohort, mostly on lesions touching the chest wall. It is tuned for solid nodules. On large masses touching the hilum
   the outline can follow hilar structures on some slices and needs manual erasing. Ground-glass nodules need a

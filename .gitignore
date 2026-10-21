@@ -62,3 +62,8 @@ DICOMDIR
 # evaluation cache (re-creatable)
 /docs/eval/cache/
 /docs/eval/cache-ai/
+/docs/eval/cache-lidc/
+/docs/eval/cache-lidc-v2/
+/docs/screenshots/probe.png
+/scripts/_tmp_readers.cjs
+/scripts/_trash/

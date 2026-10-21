@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { viteCommonjs } from '@originjs/vite-plugin-commonjs';
@@ -54,8 +56,37 @@ function contentSecurityPolicy(): Plugin {
   };
 }
 
+/**
+ * Dev server only: POST /__dev/save-shot?name=<file>.png with PNG/JPEG bytes writes docs/screenshots/<file>.
+ * Used to save real screenshots of the running app for the documentation. Never part of a build.
+ */
+function devScreenshotSaver(): Plugin {
+  return {
+    name: 'nrc-dev-screenshot-saver',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__dev/save-shot', (req, res) => {
+        const name = new URL(req.url ?? '', 'http://x').searchParams.get('name') ?? '';
+        if (req.method !== 'POST' || !/^[a-z0-9][a-z0-9._-]{0,80}\.(png|jpg)$/i.test(name)) {
+          res.statusCode = 400;
+          res.end('POST ?name=<file>.png');
+          return;
+        }
+        const chunks: Buffer[] = [];
+        req.on('data', (c: Buffer) => chunks.push(c));
+        req.on('end', () => {
+          const dir = resolve(server.config.root, 'docs/screenshots');
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(resolve(dir, name), Buffer.concat(chunks));
+          res.end(`saved docs/screenshots/${name}`);
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), viteCommonjs(), contentSecurityPolicy()],
+  plugins: [react(), viteCommonjs(), contentSecurityPolicy(), devScreenshotSaver()],
   resolve: {
     alias: [{ find: /^node:events$/, replacement: 'events' }],
   },
@@ -75,7 +106,7 @@ export default defineConfig({
     // Don't watch local imaging data kept inside the project folder (see .gitignore).
     // public/sample/ must stay watched: Vite only serves public files it knows about.
     watch: {
-      ignored: ['**/data/**', '**/datasets/**'],
+      ignored: ['**/data/**', '**/datasets/**', '**/docs/**'],
     },
   },
   build: {

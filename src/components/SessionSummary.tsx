@@ -6,6 +6,8 @@ import type { Finding } from '../findings/types';
 interface Props {
   findings: Finding[];
   exportedRows: number;
+  /** Times Export CSV was used on this scan. */
+  exportTimes: number[];
   scan?: ScanInfo;
   onClose: () => void;
   /** Deletes all findings of this scan and reloads its AI result, for a fresh timed run. */
@@ -19,8 +21,8 @@ function clock(ms: number | undefined): string {
 }
 
 /** Naomi's view of one scan: what the AI proposed, what the researcher decided, and the time it took (measured). */
-export function SessionSummary({ findings, exportedRows, scan, onClose, onStartOver }: Props) {
-  const s = sessionStats(findings);
+export function SessionSummary({ findings, exportedRows, exportTimes, scan, onClose, onStartOver }: Props) {
+  const s = sessionStats(findings, exportTimes);
   const [confirming, setConfirming] = useState(false);
   const save = () => {
     const name = `session_${scan?.patientId || 'scan'}_${scan?.timepoint ?? ''}_${new Date().toISOString().slice(0, 16).replace(':', '')}.csv`.replace(/\s+/g, '-');
@@ -68,10 +70,29 @@ export function SessionSummary({ findings, exportedRows, scan, onClose, onStartO
             <span className="summary-num">{exportedRows}</span>
             <span>rows exported</span>
           </div>
+          <div>
+            <span className="summary-num">{s.corrections}</span>
+            <span>
+              outline corrections{s.findingsCorrected ? ` on ${s.findingsCorrected} finding${s.findingsCorrected === 1 ? '' : 's'}` : ''}
+            </span>
+          </div>
+          <div>
+            <span className="summary-num">{clock(s.correctionMs)}</span>
+            <span>of it correcting outlines</span>
+          </div>
+          <div>
+            <span className="summary-num">{s.medianActiveSecondsPerDecided === undefined ? '—' : `${Math.round(s.medianActiveSecondsPerDecided)} s`}</span>
+            <span>median work per decided finding</span>
+          </div>
+          <div>
+            <span className="summary-num">{s.pausesExcluded}</span>
+            <span>pauses left out ({clock(s.pausedMs)})</span>
+          </div>
         </div>
         <p className="hint">
-          Time on scan = active time between the first finding and the last review action; pauses over 2 minutes are not
-          counted, and opening the scan is not included. Compare with your own time for the same scan without the tool.
+          Time on scan = active time from the first finding to the last action (review, outline edit, CSV export); gaps over
+          2 minutes count as pauses and are left out. Opening the scan and running the AI are not included. Work per finding =
+          the time before each of its actions. Compare with your own time for the same scan without the tool.
         </p>
         <div className="button-row button-row--start">
           <button type="button" className="primary" onClick={save}>

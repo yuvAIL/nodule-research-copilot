@@ -40,7 +40,7 @@
 | On 31 patients / 59 scans vs expert outlines (RIDER-LungCT-Seg) | |
 |---|---|
 | AI found the tumour | **53 / 59 (90 %)** |
-| AI outline vs expert (Dice) | **0.76** (5 human readers on one scan: 0.72–0.87) |
+| AI outline vs expert (Dice) | **0.76** (one patient, 5 readers with a semi-automatic tool: 0.77–0.90) |
 | Long-axis error | 5.5 mm (AI) vs 10.5 mm (our one-click fallback) |
 | Where it fails | 6 misses in 4 patients; a few scans with 15–30 small unconfirmed candidates |
 - Say: *"That's why every candidate is reviewed and missed ones are one click away (S)."*

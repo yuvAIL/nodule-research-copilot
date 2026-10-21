@@ -1,0 +1,170 @@
+{
+ "generatedAt": "2026-10-20T18:09:25.413Z",
+ "data": "LIDC-IDRI (TCIA, CC BY 3.0) via NCI Imaging Data Commons; radiologist outlines via pylidc database",
+ "scans": {
+  "selected": 15,
+  "evaluated": 15,
+  "notEvaluated": []
+ },
+ "referenceNodules": {
+  "nodules": 35,
+  "detected": 27,
+  "detectedDice01": 27,
+  "detectedDice05": 19,
+  "diceMedian": 0.593,
+  "readerDiceMedian": 0.875,
+  "absLongErrMmMedian": 2.7,
+  "absShortErrMmMedian": 1.6,
+  "volumeErrPctMedian": -55.1,
+  "absVolumeErrPctMedian": 55.1,
+  "expertLongMmRange": [
+   5.7,
+   42.6
+  ]
+ },
+ "byType": {
+  "non-solid": {
+   "nodules": 5,
+   "detected": 0,
+   "detectedDice01": 0,
+   "detectedDice05": 0,
+   "diceMedian": null,
+   "readerDiceMedian": 0.88,
+   "absLongErrMmMedian": null,
+   "absShortErrMmMedian": null,
+   "volumeErrPctMedian": null,
+   "absVolumeErrPctMedian": null,
+   "expertLongMmRange": [
+    5.7,
+    15.8
+   ]
+  },
+  "part-solid": {
+   "nodules": 3,
+   "detected": 1,
+   "detectedDice01": 1,
+   "detectedDice05": 0,
+   "diceMedian": 0.213,
+   "readerDiceMedian": 0.889,
+   "absLongErrMmMedian": 9.1,
+   "absShortErrMmMedian": 8.7,
+   "volumeErrPctMedian": -88.1,
+   "absVolumeErrPctMedian": 88.1,
+   "expertLongMmRange": [
+    7.5,
+    19.4
+   ]
+  },
+  "solid": {
+   "nodules": 27,
+   "detected": 26,
+   "detectedDice01": 26,
+   "detectedDice05": 19,
+   "diceMedian": 0.598,
+   "readerDiceMedian": 0.872,
+   "absLongErrMmMedian": 2.7,
+   "absShortErrMmMedian": 1.6,
+   "volumeErrPctMedian": -55,
+   "absVolumeErrPctMedian": 55.1,
+   "expertLongMmRange": [
+    6,
+    42.6
+   ]
+  }
+ },
+ "bySize": {
+  "10–20 mm": {
+   "nodules": 8,
+   "detected": 7,
+   "detectedDice01": 7,
+   "detectedDice05": 5,
+   "diceMedian": 0.593,
+   "readerDiceMedian": 0.886,
+   "absLongErrMmMedian": 3.9,
+   "absShortErrMmMedian": 2.4,
+   "volumeErrPctMedian": -57.8,
+   "absVolumeErrPctMedian": 57.8,
+   "expertLongMmRange": [
+    10.4,
+    19.4
+   ]
+  },
+  "6–10 mm": {
+   "nodules": 21,
+   "detected": 15,
+   "detectedDice01": 15,
+   "detectedDice05": 9,
+   "diceMedian": 0.56,
+   "readerDiceMedian": 0.866,
+   "absLongErrMmMedian": 2.5,
+   "absShortErrMmMedian": 1.4,
+   "volumeErrPctMedian": -60.9,
+   "absVolumeErrPctMedian": 60.9,
+   "expertLongMmRange": [
+    6,
+    9.6
+   ]
+  },
+  "< 6 mm": {
+   "nodules": 1,
+   "detected": 0,
+   "detectedDice01": 0,
+   "detectedDice05": 0,
+   "diceMedian": null,
+   "readerDiceMedian": 0.88,
+   "absLongErrMmMedian": null,
+   "absShortErrMmMedian": null,
+   "volumeErrPctMedian": null,
+   "absVolumeErrPctMedian": null,
+   "expertLongMmRange": [
+    5.7,
+    5.7
+   ]
+  },
+  "≥ 20 mm": {
+   "nodules": 5,
+   "detected": 5,
+   "detectedDice01": 5,
+   "detectedDice05": 5,
+   "diceMedian": 0.756,
+   "readerDiceMedian": 0.906,
+   "absLongErrMmMedian": 11.7,
+   "absShortErrMmMedian": 1.5,
+   "volumeErrPctMedian": -38,
+   "absVolumeErrPctMedian": 38,
+   "expertLongMmRange": [
+    31.6,
+    42.6
+   ]
+  }
+ },
+ "candidates": {
+  "total": 57,
+  "matchingAnyAnnotation": 38,
+  "unmatched": 19,
+  "unmatchedPerScanMedian": 1,
+  "unmatchedVolumeMm3Median": 36
+ },
+ "nonReferenceAnnotatedNodules": 25,
+ "inferenceSeconds": {
+  "n": 15,
+  "median": 97,
+  "min": 68.9,
+  "max": 128.8,
+  "machine": {
+   "chip": "Apple M3 Pro",
+   "device": "mps",
+   "totalsegmentator": "2.18.0"
+  }
+ },
+ "misses": [
+  "LIDC-IDRI-0046 N3 (non-solid, 5.7 mm, -553 HU, nearest candidate 10.5 mm)",
+  "LIDC-IDRI-0075 N1 (non-solid, 15.8 mm, -508 HU, nearest candidate 95.4 mm)",
+  "LIDC-IDRI-0076 N2 (non-solid, 8.3 mm, -651 HU, nearest candidate 69.7 mm)",
+  "LIDC-IDRI-0088 N1 (non-solid, 6.6 mm, -653 HU, nearest candidate 151.5 mm)",
+  "LIDC-IDRI-0088 N2 (non-solid, 8.3 mm, -643 HU, nearest candidate 79.7 mm)",
+  "LIDC-IDRI-0008 N1 (part-solid, 8.2 mm, -617 HU, nearest candidate 180.1 mm)",
+  "LIDC-IDRI-0008 N2 (solid, 9.5 mm, -468 HU, nearest candidate 35.2 mm)",
+  "LIDC-IDRI-0045 N4 (part-solid, 7.5 mm, -601 HU, nearest candidate 72.6 mm)"
+ ]
+}

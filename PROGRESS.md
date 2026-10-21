@@ -3,7 +3,25 @@
 Deadline (own target): **Wed 21 Oct 2026, 18:00 (IL)**. Full brief: `docs/MISSION.md`.
 Live: **https://nodule-research-copilot.pages.dev** (Cloudflare Pages, static).
 
-## Faster review — Tue 20 Oct, 17:00 ✅ (deploy pending)
+## Validation + walkthrough — Tue 20 Oct, 21:30 ✅ (deploy pending)
+
+**BUILT** — `docs/VALIDATION_AUDIT.md` (every earlier claim re-run or downgraded), `docs/CHALLENGING_NODULE_EVALUATION.md`
+(RIDER small-tumour results + LIDC-IDRI protocol), `docs/TIME_SAVINGS_EVALUATION.md`, `docs/RESEARCHER_TEST_PROTOCOL.md`,
+`deliverables/` (7-slide PDF + PPTX with notes, HTML source in `deliverables/deck/`, walkthrough script, evidence
+register, Slack draft). Timing instrumentation extended (corrections, correction time, pauses, per-finding work,
+exports). LIDC pipeline: `scripts/lidc/run-lidc.sh` → `npm run eval:lidc`; `npm run eval:readers`.
+**VERIFIED** — RIDER AI eval and click eval re-run from empty caches: identical (53/59, Dice 0.76; click 0.58).
+Reader comparison re-run: earlier ranges were wrong ("0.72–0.87 / 0.81–0.88") → corrected to readers 0.77–0.90
+(semi-automatic QIBA tool), algorithms 0.80–0.95. App processing times measured (3 runs). A real brush correction
+on the sample (scripted strokes) re-measures volume and axes and marks the finding as edited.
+**LIDC-IDRI (run on Yuval's Mac, 20:42–21:08)** — 15 scans, 35 reference nodules: solid 26/27, part-solid 1/3,
+ground-glass 0/5; all found outlines too small (−26 to −91 % volume); inference median 97 s. Scorer bug (per-scan
+orientation heuristic) found and fixed before reporting; `cache-lidc-v2`.
+**OPEN** — No researcher-timed session yet.
+**ASSUMPTIONS** — Daniel's feedback is a simulated stakeholder statement, not a usability observation. The 50 %
+reduction is a goal. The follow-up sample's −45 % volume is not a growth claim (different reconstruction kernels).
+
+## Faster review — Tue 20 Oct, 17:00 ✅ (deployed)
 
 **BUILT** — Patient timeline (all scans of the patient, Baseline/Follow-up from dates, `,`/`.` to switch); sample =
 baseline 2006-09-05 + follow-up 2006-09-20 with AI on both; follow-up comparison moved to the top of the card; **M**

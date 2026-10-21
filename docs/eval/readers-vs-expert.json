@@ -1,0 +1,344 @@
+{
+ "generatedAt": "2026-10-20T14:58:11.437Z",
+ "reference": "RIDER-LungCT-Seg MANUAL segment",
+ "rows": [
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 1",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1231426215.1104.1345734316.27",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.853
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 2",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.505801377.2044.1345983847.27",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.885
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 3",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1565948079.2848.1345145112.34",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.858
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 4",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1231426215.1056.1345551618.459",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.89
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 5",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.4148549909.2120.1344860170.34",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.87
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 1",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1231426215.1104.1345734316.34",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.874
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 2",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.505801377.2044.1345983847.34",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.887
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 3",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1565948079.2848.1345145112.27",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.77
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 4",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1231426215.1056.1345551618.452",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.9
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 5",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.4148549909.2120.1344860170.27",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.876
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg01 run1",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8180.1415310847.593766",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.884
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg01 run2",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8207.1415310875.888278",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.871
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg01 run3",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8229.1415310904.705216",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.886
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg02 run1",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8257.1415310937.239787",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.946
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg02 run2",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8279.1415310969.742678",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.943
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg02 run3",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8302.1415311002.136804",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.946
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg03 run1",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8331.1415311023.603234",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.802
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg03 run2",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8363.1415311056.610053",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.802
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg03 run3",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8395.1415311088.560335",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.803
+  }
+ ],
+ "allComparisons": [
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg01 run1",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8180.1415310847.593766",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.884
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg01 run2",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8207.1415310875.888278",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.871
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg01 run3",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8229.1415310904.705216",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.886
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg02 run1",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8257.1415310937.239787",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.946
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg02 run2",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8279.1415310969.742678",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.943
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg02 run3",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8302.1415311002.136804",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.946
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg03 run1",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8331.1415311023.603234",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.802
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg03 run2",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8363.1415311056.610053",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.802
+  },
+  {
+   "scan": "TEST",
+   "source": "QIN CT challenge: alg03 run3",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.0.8395.1415311088.560335",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.803
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 4",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1231426215.1056.1345551618.452",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.9
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 4",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1231426215.1056.1345551618.459",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.326
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 1",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1231426215.1104.1345734316.27",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.327
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 1",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1231426215.1104.1345734316.34",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.874
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 3",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1565948079.2848.1345145112.27",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.77
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 3",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1565948079.2848.1345145112.34",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.327
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 5",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.4148549909.2120.1344860170.27",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.876
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 5",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.4148549909.2120.1344860170.34",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.325
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 2",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.505801377.2044.1345983847.27",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.318
+  },
+  {
+   "scan": "TEST",
+   "source": "QIBA CT 1B Round 2 Reader 2",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.505801377.2044.1345983847.34",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.887
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 4",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1231426215.1056.1345551618.452",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.338
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 4",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1231426215.1056.1345551618.459",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.89
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 1",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1231426215.1104.1345734316.27",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.853
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 1",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1231426215.1104.1345734316.34",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.302
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 3",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1565948079.2848.1345145112.27",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.295
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 3",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.1565948079.2848.1345145112.34",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.858
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 5",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.4148549909.2120.1344860170.27",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.307
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 5",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.4148549909.2120.1344860170.34",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.87
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 2",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.505801377.2044.1345983847.27",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.885
+  },
+  {
+   "scan": "RETEST",
+   "source": "QIBA CT 1B Round 2 Reader 2",
+   "file": "SEG_1.2.276.0.7230010.3.1.3.505801377.2044.1345983847.34",
+   "algorithmType": "SEMIAUTOMATIC",
+   "dice": 0.329
+  }
+ ]
+}

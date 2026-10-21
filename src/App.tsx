@@ -107,6 +107,8 @@ export default function App() {
   const [showSummary, setShowSummary] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [exportedRows, setExportedRows] = useState(0);
+  /** When Export CSV was used, per series (for the timed-run summary). */
+  const [exportTimes, setExportTimes] = useState<Record<string, number[]>>({});
   /** Linked CSV file that is rewritten after every change ("the sheet fills itself"). */
   const [sheet, setSheet] = useState<{ handle: SheetHandle; rows: number; savedAt?: number; needsPermission?: boolean; error?: string }>();
   const sheetRef = useRef(sheet);
@@ -206,6 +208,8 @@ export default function App() {
     const name = `${scanInfo.patientId || 'scan'}_${scanInfo.timepoint}_${new Date().toISOString().slice(0, 10)}.csv`.replace(/\s+/g, '-');
     downloadText(name, toCsv(rows));
     setExportedRows((n) => n + rows.length);
+    const exportUid = store?.seriesUid;
+    if (exportUid) setExportTimes((m) => ({ ...m, [exportUid]: [...(m[exportUid] ?? []), Date.now()] }));
     setNotice(`Exported ${rows.length} row${rows.length === 1 ? '' : 's'} → ${name}`);
   };
 
@@ -1133,11 +1137,13 @@ export default function App() {
         <SessionSummary
           findings={snap.findings}
           exportedRows={exportedRows}
+          exportTimes={exportTimes[store.seriesUid] ?? []}
           scan={scanInfo}
           onClose={() => setShowSummary(false)}
           onStartOver={() => {
             store.clearAll();
             setExportedRows(0);
+            setExportTimes((m) => ({ ...m, [store.seriesUid]: [] }));
             setShowSummary(false);
             if (source?.kind === 'sample' && sampleExtras.current) {
               void importSampleExtras();

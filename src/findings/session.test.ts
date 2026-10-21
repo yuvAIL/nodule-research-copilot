@@ -35,6 +35,37 @@ describe('sessionStats', () => {
   });
 });
 
+describe('sessionStats: corrections, pauses, exports', () => {
+  it('credits work to findings, counts corrections and leaves breaks out', () => {
+    const a = f({
+      id: 'a',
+      status: 'approved',
+      edited: true,
+      timeline: [
+        { t: 0, action: 'created' },
+        { t: 20_000, action: 'edited' },
+        { t: 30_000, action: 'edited' },
+        { t: 40_000, action: 'approved' },
+      ],
+    });
+    const b = f({ id: 'b', status: 'rejected', timeline: [{ t: 0, action: 'created' }, { t: 45_000, action: 'rejected' }] });
+    // a 10-minute break, then one more finding and an export
+    const c = f({ id: 'c', source: 'click', status: 'approved', timeline: [{ t: 645_000, action: 'created' }, { t: 665_000, action: 'approved' }] });
+    const s = sessionStats([a, b, c], [675_000]);
+    expect(s.corrections).toBe(2);
+    expect(s.findingsCorrected).toBe(1);
+    expect(s.correctionMs).toBe(30_000); // 0→20 s and 20→30 s
+    expect(s.pausesExcluded).toBe(1);
+    expect(s.pausedMs).toBe(600_000);
+    expect(s.timeOnScanMs).toBe(45_000 + 20_000 + 10_000);
+    expect(s.exports).toBe(1);
+    expect(s.medianActiveSecondsPerDecided).toBe(20); // a 40 s, b 5 s, c 20 s
+    const row = sessionRow(undefined, s, 2);
+    expect(row['Outline corrections']).toBe('2');
+    expect(row['Paused minutes (not counted)']).toBe('10.0');
+  });
+});
+
 describe('activeMs', () => {
   it('excludes breaks longer than two minutes', () => {
     expect(activeMs([0, 30_000, 60_000, 60_000 + 10 * 60_000, 60_000 + 10 * 60_000 + 20_000])).toBe(80_000);

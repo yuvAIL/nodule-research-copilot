@@ -19,7 +19,9 @@
     "dev:clean": "vite --force",
     "prepare:sample": "node scripts/prepare-sample.mjs",
     "eval": "tsc -p tsconfig.eval.json && node scripts/evaluate.cjs",
-    "eval:ai": "tsc -p tsconfig.eval.json && node scripts/evaluate-ai.cjs"
+    "eval:ai": "tsc -p tsconfig.eval.json && node scripts/evaluate-ai.cjs",
+    "eval:readers": "tsc -p tsconfig.eval.json && node scripts/compare-readers.cjs",
+    "eval:lidc": "tsc -p tsconfig.eval.json && node scripts/lidc/evaluate-lidc.cjs"
   },
   "dependencies": {
     "@cornerstonejs/core": "5.13.1",

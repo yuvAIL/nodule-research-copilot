@@ -75,8 +75,14 @@ Split check (same split as §2): development 19/20 hits, Dice 0.62; held-out 34/
   RIDER-2073083717 TEST+RETEST. In the app these are "added by researcher" (press S, click) — counted as the miss rate.
 - **Noisy scans:** a few scans produce 15–30 candidates (90th percentile 23). Most are small and unconfirmed; review takes
   longer there (each is one keypress to reject). A minimum-size filter is a researcher decision we have not made for them.
-- For context on one scan with 5 independent readers (RIDER-1129164940 TEST): readers 0.72–0.87, QIN challenge
-  algorithms 0.81–0.88, TotalSegmentator 0.87, our click 0.61.
+- Context on the one patient with several independent outlines (RIDER-1129164940; `npm run eval:readers`,
+  `docs/eval/readers-vs-expert.json`), Dice vs the same MANUAL outline: 5 QIBA readers using a semi-automatic tool
+  0.77–0.90 (TEST) and 0.85–0.89 (RETEST); 3 QIN challenge algorithms (9 runs, TEST) 0.80–0.95; TotalSegmentator 0.87 /
+  0.85; our centre click 0.61 / 0.63. One patient — context, not a comparison with radiologists.
+  *(Corrected 20 Oct 2026: an earlier version said "readers 0.72–0.87, algorithms 0.81–0.88"; a re-run did not
+  reproduce that.)*
+- Stricter hit rules on the same 59 scans: Dice ≥ 0.1 → 51/59, Dice ≥ 0.5 → 43/59. Re-run from an empty cache on
+  20 Oct 2026: all 59 rows identical.
 
 ## 4. Repeatability — same patient, two scans 15 minutes apart (measured)
 
