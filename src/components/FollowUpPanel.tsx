@@ -133,10 +133,7 @@ export function FollowUpPanel({
         <div className="hint empty-compare">
           <b>No earlier measurements to compare with.</b>{' '}
           {earlierScans.length === 0 && otherScans.length > 0 ? (
-            <>
-              This is the earliest scan of {patientId || 'this patient'} here, so there is nothing earlier to compare with.
-              Accepted findings on this scan become the comparison for the later scans.
-            </>
+            <>This is the earliest scan: its accepted findings become the comparison for the later scans.</>
           ) : earlierScans.length === 0 ? (
             <>
               This browser has no earlier scan of {patientId || 'this patient'} (comparisons use only accepted findings of scans
@@ -163,11 +160,13 @@ export function FollowUpPanel({
               Accept its nodule there (A), then come back here (<kbd>.</kbd> next scan). Or {importButton}
             </>
           )}
+          {!(earlierScans.length === 0 && otherScans.length > 0) && (
           <div className="match-row">
             <button type="button" className="ghost small" onClick={() => onNoPrior(true)} title="Record that this nodule has no earlier match">
               New: no earlier match
             </button>
           </div>
+          )}
         </div>
       ) : (
         <>

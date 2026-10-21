@@ -1387,6 +1387,7 @@ export default function App() {
 
       <aside className="sidebar">
         <FileLoader
+          compact={!!series}
           disabled={busy}
           onFiles={(files, name) => void loadFiles(files, { kind: 'files', name }, lastSession)}
           onFolder={(handle) => void openFolder(handle, lastSession)}
@@ -1644,6 +1645,10 @@ export default function App() {
             accepted: acceptedBySeries[x.seriesInstanceUid] ?? 0,
           }))}
         onOpenScan={switchSeries}
+        lastExportAt={(() => {
+          const t = seriesUid ? exportTimes[seriesUid] : undefined;
+          return t?.length ? Math.max(...t) : undefined;
+        })()}
         onNoPrior={(id, v) => {
           store?.setNoPrior(id, v);
           if (v) setNotice('Recorded: no earlier match. It is exported as a new nodule ("No earlier match").');

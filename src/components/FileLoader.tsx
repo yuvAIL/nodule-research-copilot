@@ -17,6 +17,8 @@ export interface ResumeOffer {
 }
 
 interface Props {
+  /** A scan is open: show a one-line "open another scan" bar instead of the full drop zone. */
+  compact?: boolean;
   disabled: boolean;
   /** Files without a re-openable folder handle (file input, older browsers). */
   onFiles: (files: LocalFile[], name: string) => void;
@@ -35,7 +37,7 @@ function nameOf(files: LocalFile[]): string {
 }
 
 /** Open a local CT folder, individual files, a dropped folder, or the public sample. Nothing is uploaded. */
-export function FileLoader({ disabled, onFiles, onFolder, onLoadSample, sampleAvailable, resume, onError }: Props) {
+export function FileLoader({ compact, disabled, onFiles, onFolder, onLoadSample, sampleAvailable, resume, onError }: Props) {
   const folderInput = useRef<HTMLInputElement>(null);
   const filesInput = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -72,6 +74,66 @@ export function FileLoader({ disabled, onFiles, onFolder, onLoadSample, sampleAv
       onError(`Could not read the dropped items: ${error instanceof Error ? error.message : String(error)}`),
     );
   };
+
+  const inputs = (
+    <>
+      <input
+        ref={folderInput}
+        type="file"
+        hidden
+        multiple
+        // Fallback for browsers without the File System Access API.
+        {...{ webkitdirectory: '', directory: '' }}
+        onChange={(e) => {
+          const files = fromFileList(e.currentTarget.files);
+          onFiles(files, nameOf(files));
+          e.currentTarget.value = '';
+        }}
+      />
+      <input
+        ref={filesInput}
+        type="file"
+        hidden
+        multiple
+        onChange={(e) => {
+          const files = fromFileList(e.currentTarget.files);
+          onFiles(files, nameOf(files));
+          e.currentTarget.value = '';
+        }}
+      />
+    </>
+  );
+
+  if (compact) {
+    return (
+      <section
+        className={`panel loader-compact${dragging ? ' dropzone--active' : ''}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        title="Or drop a DICOM folder here"
+      >
+        <h2>Open another scan</h2>
+        <div className="loader-compact-row">
+          <button type="button" className="small" disabled={disabled} onClick={() => void openFolder()}>
+            Folder…
+          </button>
+          <button type="button" className="small" disabled={disabled} onClick={() => filesInput.current?.click()}>
+            Files…
+          </button>
+          {sampleAvailable === true && (
+            <button type="button" className="small ghost" disabled={disabled} onClick={onLoadSample}>
+              Sample
+            </button>
+          )}
+        </div>
+        {inputs}
+      </section>
+    );
+  }
 
   return (
     <section className="panel">
@@ -129,30 +191,7 @@ export function FileLoader({ disabled, onFiles, onFolder, onLoadSample, sampleAv
         </span>
       </div>
 
-      <input
-        ref={folderInput}
-        type="file"
-        hidden
-        multiple
-        // Fallback for browsers without the File System Access API.
-        {...{ webkitdirectory: '', directory: '' }}
-        onChange={(e) => {
-          const files = fromFileList(e.currentTarget.files);
-          onFiles(files, nameOf(files));
-          e.currentTarget.value = '';
-        }}
-      />
-      <input
-        ref={filesInput}
-        type="file"
-        hidden
-        multiple
-        onChange={(e) => {
-          const files = fromFileList(e.currentTarget.files);
-          onFiles(files, nameOf(files));
-          e.currentTarget.value = '';
-        }}
-      />
+      {inputs}
     </section>
   );
 }

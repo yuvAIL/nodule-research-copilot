@@ -45,6 +45,8 @@ interface Props {
   /** Reconstruction of the open scan (shown next to follow-up comparisons). */
   recon?: Recon;
   otherScans: OtherScan[];
+  /** Time of the latest Export CSV of this scan (to tell whether the export is up to date). */
+  lastExportAt?: number;
   onImport: (file: File) => void;
   onGoToPriorPosition: (prior: PriorRecord) => void;
   /** Loads an AI result (DICOM SEG) as candidates to review. */
@@ -135,6 +137,104 @@ function ThresholdControl({ finding, onResegment }: { finding: Finding; onResegm
   );
 }
 
+type StepState = 'done' | 'current' | 'todo';
+interface Guide {
+  steps: { label: string; state: StepState }[];
+  text: string;
+  action?: { label: string; run: () => void };
+  exportedUpToDate: boolean;
+}
+
+/**
+ * The researcher's next step on this scan, from the app's own state: review → (confirm matches) → export → (next scan).
+ * A first-time user always sees what to do next, and a returning user sees what is still open.
+ */
+function nextStep(props: Props, c: { toReview: number; approved: Finding[]; incomplete: number }): Guide {
+  const { findings } = props;
+  const date = props.scan?.studyDate ?? '';
+  const later = props.otherScans.filter((o) => date && o.date > date);
+  const isFollowUp = props.otherScans.some((o) => date && o.date && o.date < date);
+  const lastChange = Math.max(0, ...findings.flatMap((f) => f.timeline.map((e) => e.t)));
+  const exportedUpToDate = !!props.lastExportAt && c.approved.length > 0 && props.lastExportAt >= lastChange;
+  const unmatched = isFollowUp ? c.approved.filter((f) => !f.match && !f.noPrior) : [];
+  const firstToReview = findings.find((f) => f.status === 'unreviewed');
+  const go = (f: Finding) => () => {
+    props.onSelect(f.id);
+    props.onGoTo(f);
+  };
+
+  const reviewDone = findings.length > 0 && c.toReview === 0;
+  const matchDone = reviewDone && unmatched.length === 0;
+  const steps: Guide['steps'] = [{ label: 'Review', state: reviewDone ? 'done' : 'current' }];
+  if (isFollowUp) steps.push({ label: 'Match', state: matchDone ? 'done' : reviewDone ? 'current' : 'todo' });
+  const readyToExport = reviewDone && (!isFollowUp || matchDone);
+  steps.push({ label: 'Export', state: exportedUpToDate && readyToExport ? 'done' : readyToExport ? 'current' : 'todo' });
+  if (later.length) steps.push({ label: 'Follow-up', state: exportedUpToDate && readyToExport ? 'current' : 'todo' });
+
+  if (findings.length === 0) {
+    return { steps, exportedUpToDate, text: 'No findings yet. Load the AI result (Worklist), or press S and click a nodule to add one.' };
+  }
+  if (firstToReview) {
+    return {
+      steps,
+      exportedUpToDate,
+      text: `${c.toReview} to review. Accept (A) or reject (R) each one; fix an edge with E or B first if needed.`,
+      action: { label: `Go to ${firstToReview.name}`, run: go(firstToReview) },
+    };
+  }
+  if (unmatched[0]) {
+    return {
+      steps,
+      exportedUpToDate,
+      text: `${unmatched.length} accepted finding${unmatched.length === 1 ? '' : 's'} without a match decision. Confirm the earlier nodule (M) or mark it as new.`,
+      action: { label: `Go to ${unmatched[0].name}`, run: go(unmatched[0]) },
+    };
+  }
+  if (c.approved.length === 0) {
+    return { steps, exportedUpToDate, text: 'Everything was rejected, so there is nothing to export. Add a missed nodule with S if needed.' };
+  }
+  if (!exportedUpToDate) {
+    return {
+      steps,
+      exportedUpToDate,
+      text: c.incomplete
+        ? `Ready to export, but ${c.incomplete} accepted finding${c.incomplete === 1 ? ' is' : 's are'} missing Type or Lobe.`
+        : `Ready: ${c.approved.length} accepted finding${c.approved.length === 1 ? '' : 's'} to export.`,
+      action: { label: 'Export CSV', run: props.onExport },
+    };
+  }
+  const next = later[0];
+  if (next) {
+    return { steps, exportedUpToDate, text: `Exported. Next: the ${next.label.split(' · ')[0]} scan of ${next.date}.`, action: { label: 'Open it', run: () => props.onOpenScan(next.uid) } };
+  }
+  return { steps, exportedUpToDate, text: 'Done: every accepted finding on this scan is exported.' };
+}
+
+function NextStep({ steps, text, action }: Guide) {
+  return (
+    <section className="next-step" aria-label="Next step">
+      <ol className="steps">
+        {steps.map((st, i) => (
+          <li key={st.label} className={`step step--${st.state}`}>
+            <span className="step-dot" aria-hidden="true">
+              {st.state === 'done' ? '✓' : i + 1}
+            </span>
+            {st.label}
+          </li>
+        ))}
+      </ol>
+      <div className="next-text">
+        <span>{text}</span>
+        {action && (
+          <button type="button" className="small primary" onClick={action.run}>
+            {action.label}
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function FindingsPanel(props: Props) {
   const { volume, findings, selected, canUndo } = props;
   const toReview = findings.filter((f) => f.status === 'unreviewed').length;
@@ -146,10 +246,12 @@ export function FindingsPanel(props: Props) {
   const added = findings.length - ai.length;
   const elapsed = timeOnScan(findings);
   const aiInput = useRef<HTMLInputElement>(null);
+  const guide = nextStep(props, { toReview, approved, incomplete });
 
   return (
     <aside className="copilot">
       {props.header}
+      {props.scan && volume.kind === 'ready' && <NextStep {...guide} />}
       {props.scan && (
         <section className="panel record">
           <h2>Research record</h2>
@@ -178,6 +280,8 @@ export function FindingsPanel(props: Props) {
             </div>
           </dl>
           {props.liveSheet && (
+            <details className="sheet-details" open={!!props.liveSheet.name}>
+              <summary>Keep a CSV file on this computer up to date (optional)</summary>
             <div className={`live-sheet${props.liveSheet.name && !props.liveSheet.needsPermission ? ' live-sheet--on' : ''}`}>
               {!props.liveSheet.name ? (
                 <>
@@ -213,19 +317,8 @@ export function FindingsPanel(props: Props) {
               )}
               {props.liveSheet.error && <span className="reference-error">{props.liveSheet.error}</span>}
             </div>
+            </details>
           )}
-          <div className="export-row">
-            <button type="button" className="primary" disabled={approved.length === 0} onClick={props.onExport}>
-              Export CSV ({approved.length})
-            </button>
-            <span className="hint">
-              {approved.length === 0
-                ? 'Only accepted findings are exported. Accept at least one (A).'
-                : `${approved.length} approved${toReview ? ` · ${toReview} not yet reviewed (not exported)` : ''}${
-                    incomplete ? ` · ${incomplete} missing Type/Lobe` : ''
-                  }`}
-            </span>
-          </div>
         </section>
       )}
 
@@ -371,7 +464,7 @@ export function FindingsPanel(props: Props) {
                 <dt>Volume</dt>
                 {hasLesionVolume(selected.measurement) ? (
                   <dd className="mono">
-                    {fmt(selected.measurement.volumeMm3, 0)} mm³{' '}
+                    {Math.round(selected.measurement.volumeMm3).toLocaleString('en-US')} mm³{' '}
                     <span className="muted">({fmt(selected.measurement.volumeMm3 / 1000, 2)} mL)</span>
                   </dd>
                 ) : (
@@ -430,29 +523,6 @@ export function FindingsPanel(props: Props) {
             <div className="hint">Approved {new Date(selected.approved.at).toLocaleTimeString()}. Editing requires re-approval.</div>
           )}
 
-          {selected.status !== 'rejected' && selected.measurement && (
-            <FollowUpPanel
-              key={selected.id}
-              finding={selected}
-              priors={props.priors}
-              suggestion={props.suggestion}
-              patientId={props.scan?.patientId ?? ''}
-              onMatch={(prior, status) => props.onMatch(selected.id, prior, status)}
-              onClearMatch={() => props.onClearMatch(selected.id)}
-              onNoPrior={(v) => props.onNoPrior(selected.id, v)}
-              onOpenScan={props.onOpenScan}
-              now={{ date: props.scan?.studyDate ?? '', timepoint: props.scan?.timepoint ?? '', recon: props.recon }}
-              otherScans={props.otherScans}
-              takenBy={
-                new Map(
-                  props.findings.flatMap((f) => (f.match && f.id !== selected.id ? [[f.match.prior.key, f.name] as [string, string]] : [])),
-                )
-              }
-              onImport={props.onImport}
-              onGoToPriorPosition={props.onGoToPriorPosition}
-            />
-          )}
-
           <div className="review-actions">
             {selected.status !== 'approved' ? (
               <button
@@ -485,6 +555,7 @@ export function FindingsPanel(props: Props) {
               Reset
             </button>
           </div>
+
 
           {selected.seed && selected.status !== 'rejected' && (
             <ThresholdControl finding={selected} onResegment={props.onResegment} />
@@ -553,6 +624,29 @@ export function FindingsPanel(props: Props) {
 
 
 
+          {selected.status !== 'rejected' && selected.measurement && (
+            <FollowUpPanel
+              key={selected.id}
+              finding={selected}
+              priors={props.priors}
+              suggestion={props.suggestion}
+              patientId={props.scan?.patientId ?? ''}
+              onMatch={(prior, status) => props.onMatch(selected.id, prior, status)}
+              onClearMatch={() => props.onClearMatch(selected.id)}
+              onNoPrior={(v) => props.onNoPrior(selected.id, v)}
+              onOpenScan={props.onOpenScan}
+              now={{ date: props.scan?.studyDate ?? '', timepoint: props.scan?.timepoint ?? '', recon: props.recon }}
+              otherScans={props.otherScans}
+              takenBy={
+                new Map(
+                  props.findings.flatMap((f) => (f.match && f.id !== selected.id ? [[f.match.prior.key, f.name] as [string, string]] : [])),
+                )
+              }
+              onImport={props.onImport}
+              onGoToPriorPosition={props.onGoToPriorPosition}
+            />
+          )}
+
           {selected.thumbnail && !selected.match && (
             <img className="thumb" src={selected.thumbnail} alt={`${selected.name} on the measured slice`} />
           )}
@@ -565,6 +659,20 @@ export function FindingsPanel(props: Props) {
             </button>
           </div>
         </section>
+      )}
+      {props.scan && (
+        <div className="export-dock">
+          <button type="button" className="primary" disabled={approved.length === 0} onClick={props.onExport}>
+            Export CSV ({approved.length})
+          </button>
+          <span className="hint">
+            {approved.length === 0
+              ? 'Only accepted findings are exported.'
+              : `${approved.length} accepted${toReview ? ` · ${toReview} to review` : ''}${incomplete ? ` · ${incomplete} missing Type/Lobe` : ''}${
+                  guide.exportedUpToDate ? ' · exported' : ''
+                }`}
+          </span>
+        </div>
       )}
     </aside>
   );

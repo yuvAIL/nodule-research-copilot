@@ -67,8 +67,8 @@ export function ReferencePanel({ ready, reference, show, error, agreement, onLoa
       {reference && (
         <>
           <p className="reference-source">
-            <span className="tag tag--expert">{reference.kind}</span> {reference.description ?? reference.fileName}
-            {reference.creator && <span className="muted"> · {reference.creator}</span>}
+            <span className="tag tag--expert">{reference.kind}</span>{' '}
+            <span title={[reference.fileName, reference.creator].filter(Boolean).join(' · ')}>{reference.description ?? reference.fileName}</span>
           </p>
           <label className="check">
             <input type="checkbox" checked={show} onChange={(e) => onShow(e.target.checked)} /> Show the selected outline (dotted
@@ -129,19 +129,19 @@ export function ReferencePanel({ ready, reference, show, error, agreement, onLoa
                 </thead>
                 <tbody>
                   <tr>
-                    <td>Long</td>
+                    <td>Long (mm)</td>
                     <td>{agreement.agreement.app.longMm.toFixed(1)}</td>
                     <td>{agreement.agreement.ref.longMm.toFixed(1)}</td>
                     <td>{signed(agreement.agreement.longDiffMm)} mm</td>
                   </tr>
                   <tr>
-                    <td>Short</td>
+                    <td>Short (mm)</td>
                     <td>{agreement.agreement.app.shortMm.toFixed(1)}</td>
                     <td>{agreement.agreement.ref.shortMm.toFixed(1)}</td>
                     <td>{signed(agreement.agreement.shortDiffMm)} mm</td>
                   </tr>
                   <tr>
-                    <td>Volume</td>
+                    <td>Volume (mL)</td>
                     <td>{(agreement.agreement.app.volumeMm3 / 1000).toFixed(2)}</td>
                     <td>{(agreement.agreement.ref.volumeMm3 / 1000).toFixed(2)}</td>
                     <td>{signed(agreement.agreement.volumeDiffPct, 0)} %</td>
