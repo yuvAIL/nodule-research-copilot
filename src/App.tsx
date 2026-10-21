@@ -449,17 +449,24 @@ export default function App() {
       updateSessions((list) => list.map((t) => (t.id === activeSession.id ? { ...t, referenceShown: true } : t)));
     }
   }, [activeSession, referenceVisible, updateSessions]);
+  // A timed task belongs to one scan: say so when the researcher opens another scan mid-task.
+  const timedScanUid = activeSession?.scan?.seriesUid;
+  useEffect(() => {
+    if (timedScanUid && seriesUid && seriesUid !== timedScanUid) {
+      setNotice('A timed task is running for another scan. Finish it there first: a task on several scans is timed, but not split into phases.');
+    }
+  }, [seriesUid, timedScanUid, setNotice]);
   const startTimed = () => {
     if (!store || !scanRef || activeSession) return;
-    const hid = referenceVisible;
-    if (hid) setShowReference(false);
+    // Always start hidden, also when no outline is loaded yet: one may arrive later (e.g. the sample's follow-up scan).
+    setShowReference(false);
     updateSessions((list) => [
       ...list,
       { id: `assisted-${Date.now().toString(36)}`, mode: 'assisted', scan: scanRef, startedAt: Date.now(), pauses: [], referenceShown: false, completed: false },
     ]);
     setNotice(
       `Timing started for ${scanRef.patientId} · ${scanRef.timepoint}. Do the whole task: review, correct, add missed, accept, Export CSV, then Finish.` +
-        (hid ? ' The expert outline is hidden (ordinary use); showing it marks this session reference-assisted.' : ''),
+        ' The expert outline stays hidden (ordinary use); showing it marks this session reference-assisted.',
     );
   };
   const pauseTimed = (pause: boolean) => {
