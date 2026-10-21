@@ -11,7 +11,7 @@ detail lives here. Numbers trace to `EVIDENCE_REGISTER.md` (E-numbers). Say "we 
 | 3 | From the hospital scan to your sheet | 2 | How Daniel will actually work with it |
 | 4 | The AI does the first pass | 1.5 | What the AI does, and that nothing is final |
 | 5 | Review. Correct. Approve. | 2 | Daniel controls every number |
-| 6 | Every nodule is matched to its earlier self | 1.5 | Follow-up without re-finding or arithmetic |
+| 6 | Each nodule gets a suggested match from the earlier scan | 1.5 | Follow-up without re-finding or arithmetic |
 | 7 | Small solid: found. Ground-glass: not yet. | 2.5 | Honest results on the cases he asked about |
 | 8 | What is proven, and what is not yet | 2 | Evidence vs. open questions |
 | 9 | What would make this worth using? | 1 + discussion | His three answers and the next step |
@@ -36,11 +36,13 @@ detail lives here. Numbers trace to `EVIDENCE_REGISTER.md` (E-numbers). Say "we 
 ## Slide 3 · From the hospital scan to your sheet (2 min)
 
 - Walk left to right. He exports the scan as for any research scan → one command runs the AI (~97 s per scan,
-  measured; can run overnight) → he opens the folder in Chrome → he reviews, fixes and approves → the sheet fills
-  itself in his columns.
+  measured; can run overnight) → he opens the folder in Chrome → he reviews, fixes and approves → approved nodules
+  export as a CSV in his sheet's columns (opens in Excel).
 - Only step 4 needs his judgement. The rest is machine time.
-- Nothing leaves the lab computer, and the browser blocks connections to other sites (E22). No server and no
-  hospital connection means no IT project, which is where last year's vendor stalled.
+- Scans stay on the lab computer: the browser blocks connections to other sites (verified, E22). The AI model
+  sends anonymous usage statistics by default; our run script switches that off before every run.
+- Setup is one Python install (TotalSegmentator) on the lab computer. No server and no hospital connection, so no
+  integration project. Whether installing Python on a hospital laptop needs IT sign-off is their policy; ask.
 - Honest: export and the AI command are manual today. Next (not built): the AI runs by itself on new exports.
   Writing results back to the hospital system only if the hospital wants it (standard DICOM SEG).
 
@@ -55,12 +57,14 @@ detail lives here. Numbers trace to `EVIDENCE_REGISTER.md` (E-numbers). Say "we 
 ## Slide 5 · Review. Correct. Approve. (2 min)
 
 - Left: the AI outline (cyan) and the expert's (dotted magenta). Right: after brush strokes on 5 slices.
-- Volume moved 43.8 → 46.8 mL, toward the expert's 55.0 mL. One stroke overshot the long axis (65.1 vs 59.8 mm).
-  "I'm showing that on purpose: every stroke re-measures, so a mistake shows at once and is one undo away." (E8)
-- Say plainly: the strokes were made by our test script, so this shows the mechanism, not correction time.
+- All three numbers moved toward the expert: volume 43.8 → 46.5 mL (expert 55.0), long axis 55.4 → 62.8 mm
+  (expert 59.8, error 4.4 → 3.0 mm), Dice 0.87 → 0.88 (E8). Every stroke re-measures, so a wrong stroke shows at
+  once and is one undo away.
+- Say plainly: the strokes were made by our test script, so this shows the mechanism, not how long it takes a
+  person. Correction time is the open question (slide 8).
 - Keys: A accept, R reject, B brush, E erase, S click to add a missed nodule (logged as added by the researcher).
 
-## Slide 6 · Every nodule is matched to its earlier self (1.5 min)
+## Slide 6 · Each nodule gets a suggested match from the earlier scan (1.5 min)
 
 - Baseline 5 Sep 2006 and follow-up 20 Sep 2006, same patient. The app paired N1 with its earlier self (38 mm
   apart, closest first) and computed the change. The "?" stays until he confirms (E9).
@@ -83,20 +87,24 @@ detail lives here. Numbers trace to `EVIDENCE_REGISTER.md` (E-numbers). Say "we 
 
 ## Slide 8 · What is proven, and what is not yet (2 min)
 
-- Measured: 53 of 59 known tumours found on RIDER (90 %; stricter Dice ≥ 0.5: 43/59), median overlap with the expert
-  outline 0.76, AI time 97 s per scan (E3–E6). Context, not equivalence: on one scan, 5 readers using a
+- Measured on RIDER: 59 scans of 31 patients (TEST + RETEST), one expert-labelled tumour per scan. The tumour was
+  found on 53 (90 %; stricter Dice ≥ 0.5: 43/59). Median Dice 0.76 over the 53 found (misses excluded, listed
+  separately). A median of 3 extra candidates per scan to reject, up to 30 on a few scans. AI time 97 s (E3–E6). Context, not equivalence: on one scan, 5 readers using a
   semi-automatic tool scored 0.77–0.90 against the same expert (E19).
 - Time: today 25–40 min (his estimate), goal 12–20 min, with the tool **not measured yet** (E17). The app already
   logs every action, correction and pause, so one timed session gives the answer.
-- Not proven: researcher time saved, and ground-glass. False positives are only an upper bound (LIDC: a median of 1
-  extra candidate per scan).
+- Not proven: researcher time saved, and ground-glass. Time saved will depend mostly on how long the edge
+  corrections take, since every solid outline came out too small. False positives are only an upper bound (LIDC:
+  a median of 1 extra candidate per scan).
 
 ## Slide 9 · What would make this worth using? (1 min + discussion)
 
 - Read his quote. It is his written feedback, not an observation of him using the tool (E18).
-- Ask the three questions and write the answers down word for word.
-- Propose the next step: a 20-minute timed session on 10 public scans, manual vs with the tool
-  (`docs/RESEARCHER_TEST_PROTOCOL.md`).
+- Ask the three questions and write the answers down word for word. Question 1 is a task, not an opinion: he already
+  said the flow fits; now we want to see where he gets stuck.
+- Next step: a 20-minute hands-on session on one scan (`docs/RESEARCHER_TEST_PROTOCOL.md`). Then a planned timing
+  study: the same task on a few scans, manual vs with the tool, with correction time measured separately and the
+  order swapped to limit learning effects (`docs/TIME_SAVINGS_EVALUATION.md` §5).
 
 ## If asked
 

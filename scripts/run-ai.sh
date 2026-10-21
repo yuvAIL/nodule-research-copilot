@@ -10,7 +10,8 @@
 #
 # Needs TotalSegmentator (pip install TotalSegmentator highdicom). Set TOTALSEG=/path/to/TotalSegmentator
 # if it is not on PATH, and DEVICE=cpu on machines without Apple Silicon / CUDA (DEVICE=gpu for NVIDIA).
-# TotalSegmentator sends anonymous usage statistics by default — switch that off before using non-public scans.
+# TotalSegmentator sends anonymous usage statistics by default. This script switches that off before every run
+# (send_usage_stats = false in ~/.totalsegmentator/config.json), so nothing about the run leaves the computer.
 set -euo pipefail
 TS="${TOTALSEG:-TotalSegmentator}"
 DEVICE="${DEVICE:-mps}"
@@ -18,6 +19,23 @@ if [ "$#" -eq 0 ]; then
   echo "Usage: scripts/run-ai.sh <CT series folder> [...]" >&2
   exit 1
 fi
+# Opt out of TotalSegmentator's anonymous usage statistics (keeps any other settings in the config file).
+python3 - <<'PY'
+import json, os, secrets
+p = os.path.expanduser("~/.totalsegmentator/config.json")
+os.makedirs(os.path.dirname(p), exist_ok=True)
+cfg = {}
+if os.path.exists(p):
+    try:
+        cfg = json.load(open(p))
+    except Exception:
+        cfg = {}
+cfg.setdefault("totalseg_id", "totalseg_" + secrets.token_hex(5))
+cfg.setdefault("prediction_counter", 0)
+cfg["send_usage_stats"] = False
+json.dump(cfg, open(p, "w"), indent=4)
+print("TotalSegmentator usage statistics: off (" + p + ")")
+PY
 for scan in "$@"; do
   scan="${scan%/}"
   out="${scan}_ai"

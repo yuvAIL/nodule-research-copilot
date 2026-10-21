@@ -2,9 +2,9 @@
   <style>
     .rs { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; min-height: 0; padding-bottom: 20px; }
     .colh { font: 600 17px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 26px; }
-    .big3 { display: flex; flex-direction: column; gap: 30px; }
+    .big3 { display: flex; flex-direction: column; gap: 24px; }
     .b3 { display: grid; grid-template-columns: 215px 1fr; align-items: baseline; gap: 26px; }
-    .b3 .v { font: 700 76px/1 var(--sans); letter-spacing: -.03em; }
+    .b3 .v { font: 700 68px/1 var(--sans); letter-spacing: -.03em; }
     .b3 .v small { font-size: 34px; color: var(--muted); font-weight: 600; }
     .b3 .d { font-size: 24px; color: var(--muted); line-height: 1.35; }
     .b3 .d b { color: var(--text); }
@@ -22,8 +22,9 @@
     <div>
       <div class="colh" style="color:var(--ok)">Measured on public data</div>
       <div class="big3">
-        <div class="b3"><div class="v">53<small>/59</small></div><div class="d"><b>known tumours found</b> on RIDER scans (90 %)</div></div>
-        <div class="b3"><div class="v">0.76</div><div class="d"><b>overlap with the expert outline</b> (Dice; 1 = identical)</div></div>
+        <div class="b3"><div class="v">53<small>/59</small></div><div class="d"><b>scans where the known tumour was found</b> (RIDER, 31 patients, one labelled tumour per scan)</div></div>
+        <div class="b3"><div class="v">0.76</div><div class="d"><b>median overlap with the expert outline</b> on the 53 found (Dice; 1 = identical)</div></div>
+        <div class="b3"><div class="v">3<small>/scan</small></div><div class="d"><b>extra candidates to reject</b> (median; up to 30 on a few scans)</div></div>
         <div class="b3"><div class="v">97<small> s</small></div><div class="d"><b>AI time per scan</b>, unattended, on a laptop</div></div>
       </div>
     </div>
@@ -35,7 +36,7 @@
         <span>With the tool</span><div class="bar2" style="border-style:dashed;border-color:rgba(251,191,36,.6)"><span class="lab" style="left:18px;color:var(--warn)">not measured yet</span></div>
         <span></span><div class="ticks2"><span>0</span><span>10</span><span>20</span><span>30</span><span>40 min</span></div>
       </div>
-      <div class="notyet"><b>Not proven yet:</b> time saved with a real researcher (next: one timed session), and hazy nodules (ground-glass 0 of 5).</div>
+      <div class="notyet"><b>Not proven yet:</b> time saved with a real researcher, which will depend mostly on <b style="color:var(--text)">how long the edge corrections take</b>; and hazy nodules (ground-glass 0 of 5).</div>
     </div>
   </div>
   <div class="foot"><span>RIDER Lung CT + RIDER-LungCT-Seg, 31 patients · AI time: 15 LIDC scans, MacBook M3 Pro · "today" = Daniel's estimate</span><span>Evidence E1–E7, E16, E17</span></div>
