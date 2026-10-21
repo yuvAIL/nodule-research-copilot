@@ -1,5 +1,5 @@
 import type { Finding } from './types';
-import { secondsToApproval } from './types';
+import { hasLesionVolume, recordMeasurement, secondsToApproval } from './types';
 import { compare } from './priors';
 
 /**
@@ -15,6 +15,8 @@ export interface ScanInfo {
   timepoint: string;
   /** e.g. "100 — CT 1.25 mm STANDARD" */
   series: string;
+  /** DICOM SeriesInstanceUID: the stable identity of the scan (not shown in Daniel's columns). */
+  seriesUid?: string;
 }
 
 export const CSV_COLUMNS = [
@@ -43,6 +45,11 @@ export const CSV_COLUMNS = [
   'Change long diameter (%)',
   'Prior volume (mm3)',
   'Change volume (%)',
+  'Volume basis',
+  'Proposed long diameter (mm)',
+  'Proposed volume (mm3)',
+  'Finding UID',
+  'Series UID',
 ] as const;
 
 export type CsvColumn = (typeof CSV_COLUMNS)[number];
@@ -68,8 +75,14 @@ function num(n: number | undefined, digits: number): string {
   return n === undefined || !Number.isFinite(n) ? '' : n.toFixed(digits);
 }
 
+export function volumeBasis(m: Finding['measurement']): string {
+  if (!m) return '';
+  return hasLesionVolume(m) ? `3-D outline, ${m.slicesSpanned} slices` : 'single slice: diameters only, no volume';
+}
+
 export function toRow(scan: ScanInfo, f: Finding): ResearchRow {
-  const m = f.status === 'approved' && f.approved ? f.approved.measurement : f.measurement;
+  const m = recordMeasurement(f);
+  const volumeOk = hasLesionVolume(m);
   const prior = f.match?.prior;
   const delta = prior && m ? compare(prior, { longMm: m.longMm, shortMm: m.shortMm, volumeMm3: m.volumeMm3 }) : undefined;
   const seconds = secondsToApproval(f);
@@ -90,8 +103,8 @@ export function toRow(scan: ScanInfo, f: Finding): ResearchRow {
     Lobe: f.lobe,
     'Long diameter (mm)': num(m?.longMm, 1),
     'Short diameter (mm)': num(m?.shortMm, 1),
-    'Volume (mm3)': num(m?.volumeMm3, 0),
-    'Match status': f.match?.status ?? '',
+    'Volume (mm3)': volumeOk ? num(m?.volumeMm3, 0) : '',
+    'Match status': f.match?.status ?? (f.noPrior ? 'No earlier match' : ''),
     Minutes: seconds === undefined ? '' : num(seconds / 60, 1),
     Notes: f.notes,
     'Review status': f.status,
@@ -104,7 +117,12 @@ export function toRow(scan: ScanInfo, f: Finding): ResearchRow {
     'Change long diameter (mm)': num(delta?.long.deltaMm, 1),
     'Change long diameter (%)': num(delta?.long.deltaPct, 1),
     'Prior volume (mm3)': num(prior?.volumeMm3, 0),
-    'Change volume (%)': num(delta?.volume.deltaPct, 1),
+    'Change volume (%)': volumeOk ? num(delta?.volume.deltaPct, 1) : '',
+    'Volume basis': volumeBasis(m),
+    'Proposed long diameter (mm)': f.proposal && f.source !== 'manual' ? num(f.proposal.longMm, 1) : '',
+    'Proposed volume (mm3)': f.proposal && f.source !== 'manual' && hasLesionVolume(f.proposal) ? num(f.proposal.volumeMm3, 0) : '',
+    'Finding UID': f.id,
+    'Series UID': scan.seriesUid ?? '',
   };
 }
 

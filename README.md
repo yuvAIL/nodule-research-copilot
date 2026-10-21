@@ -11,13 +11,18 @@ the lab's spreadsheet rows — with earlier measurements of the same patient sho
 
 ### 60-second tour
 1. Click **Load sample CT** — a public RIDER scan opens with its precomputed AI result and the expert's outline.
-2. The **Worklist** on the right says *"AI found 2"*. The first candidate is selected and shown on the image.
+2. The **Worklist** on the right says *"AI found 3"* on the baseline. The first candidate is selected and shown on the image.
 3. Press **A** to accept (jumps to the next one), **R** to reject, **J/K** to move, **B/E** to brush/erase the outline.
 4. Missed one? Press **S** and click it — it is outlined and measured, and logged as *added by you*.
 5. Pick Type and Lobe, then **Export CSV** — one row per accepted nodule, in the lab's columns, with provenance.
+6. Press **.** for the follow-up scan: each nodule shows a *suggested* earlier match; **M** confirms it.
+7. To time a task: **▶ Start timed task** before step 2, **Finish** after the export (see **Timing**).
 
 **Results:** see [`docs/EVALUATION.md`](docs/EVALUATION.md) — accuracy on 31 patients / 59 scans against expert outlines,
 repeatability, AI result, failure modes, and how time saved is measured.
+
+**Pilot readiness (21 Oct 2026):** [`docs/PILOT_READINESS.md`](docs/PILOT_READINESS.md) — what changed for the pilot,
+what was verified and how, limitations, demo script, the 20-minute usability session and the timing-study outline.
 
 **Validation pack (20 Oct 2026):** [`docs/VALIDATION_AUDIT.md`](docs/VALIDATION_AUDIT.md) (which claims are verified) ·
 [`docs/CHALLENGING_NODULE_EVALUATION.md`](docs/CHALLENGING_NODULE_EVALUATION.md) (small and ground-glass nodules) ·
@@ -33,13 +38,14 @@ walkthrough slides, script and evidence register in [`deliverables/`](deliverabl
 | Review AI candidates | **Load AI result…** (a DICOM SEG from TotalSegmentator `lung_nodules`, run offline) or a SEG file inside the opened folder. Each connected piece becomes a candidate *to review*, labelled with the model, version and run date. A/R/J/K review; nothing is exported until accepted. |
 | Search faster | **T** toggles a thick-slab **MIP** (10 → 20 mm → off): nodules stay round bright blobs, vessels become lines — the radiologist's way to check for missed nodules without reading every slice. Display only. |
 | Fill the sheet | On **Accept**, empty Type and Lobe are filled from suggestions: Type from the outline's HU (solid / part-solid / ground-glass / calcified, rule of thumb) and Lobe from the AI lobe map. Shown as suggestions; one click to change. |
-| Follow-up | A **patient timeline** lists every scan of the patient (Baseline / Follow-up n from the dates); **,** / **.** switch scans. On a follow-up **every** finding is paired with its earlier self automatically (one-to-one, closest first, earlier scans only) and shows "↔ ▼45% vs Baseline?"; **A** accepts the finding and confirms the pair (**M** confirms only the pair). The change is shown in the worklist and on the image. |
-| Sheet fills itself | **Link sheet…** once (Chrome/Edge): a CSV on your computer is rewritten after every change with all accepted nodules of all scans — no Export clicks. Export CSV still works for one scan. |
+| Follow-up | A **patient timeline** lists every scan of the patient (Baseline / Follow-up n from the dates); **,** / **.** switch scans. On a follow-up each finding gets a **suggested** earlier match by position (one-to-one, closest first, earlier scans only, ≤ 50 mm), shown as "↔ ▼44% vs Baseline?". A suggestion is never confirmed automatically: **A** approves the measurement only; **M** (or *Same nodule*) confirms the match, *Probably same* records it as uncertain, *Not in earlier scan* records "No earlier match". Comparisons use only **accepted** findings of the earlier scan; when there are none the panel says why and offers *Open it*. |
+| Link sheet (optional) | Chrome/Edge: choose a CSV file on this computer and allow the browser to edit it; the browser then rewrites that file with every accepted finding of every scan measured in this browser. After a reload the browser asks again (*Resume writing*). A failed write is shown as an error, never as saved. **Export CSV** (a normal download) always works and is the reliable path. |
+| Timed tasks | **▶ Start timed task** / Pause / Resume / Finish in the header. The expert outline is hidden at Start; showing it marks the session *reference-assisted*. Finish records task time (pauses excluded), phases (review / correction / adding / documentation / other, non-overlapping) and counts. **Timing** holds observed manual sessions and computes time saved = manual − assisted only for scans with both (can be negative). AI inference is not part of the task time. |
 | Open a scan | **Open CT folder…** / **Open files…** / drag a folder in, or **Load sample CT**. Series are grouped and ordered by 3-D position; gaps and duplicates are flagged. After a reload (⌘R) the last scan reopens at the same slice. |
 | Measure | **Click nodule (S)** → click inside the nodule. A classical (non-AI) region-grow builds a 3-D outline and computes RECIST-style long/short axes on the slice where the nodule is largest, plus volume. |
-| Correct | **Brush (B)** / **Erase (E)**, size `[` `]`, optional 3-D sphere brush, **Undo (⌘Z)**, **Reset**, threshold slider + re-segment. Edited findings are labelled “edited by researcher”. |
+| Correct | **Brush (B)** / **Erase (E)**, size `[` `]`, optional 3-D sphere brush, **Undo (⌘Z)**, **Reset**, threshold slider + re-segment. Every stroke re-measures from the voxels. Edited findings are labelled “edited by researcher”; the original AI measurement is kept and exported next to the edited one. Editing an approved finding sets it back to *↻ Re-approve* and leaves it out of the export until accepted again; undo restores the outline, the numbers and the approval. |
 | Review | **Approve (A)** / **Reject (R)**, **N** = next unreviewed. Type, lobe and notes per finding; missing fields are highlighted. |
-| Document | **Export CSV**: the lab's columns + provenance (measurement source, measured slice, approval time) + follow-up columns. Opens directly in Excel (UTF-8 BOM, CRLF). PNG screenshot per finding. |
+| Document | **Export CSV**: one row per **accepted** finding (re-exporting writes the same rows, no duplicates): the lab's columns + provenance (measurement source, measured slice, approval time, volume basis, original AI measurement, finding UID, series UID) + follow-up columns. A single-slice outline exports diameters with an empty volume (“single slice: diameters only, no volume”). Opens directly in Excel (UTF-8 BOM, CRLF). PNG screenshot per finding. |
 | Follow-up | Earlier measurements come from scans measured in this app or from an imported lab CSV. Each finding shows earlier vs. now, Δ mm / Δ % / Δ volume, and asks “same nodule?” (Confident / Uncertain). |
 
 Every number in the UI says where it came from (click segmentation, manual, edited). Nothing is labelled AI
@@ -143,8 +149,14 @@ npx wrangler pages deploy dist --project-name nodule-research-copilot --branch m
 - **Segmentation** (`src/measure/segment.ts`): threshold (−400 HU default, adjustable) → per-slice lung
   convex-hull constraint (keeps the chest wall out) → adaptive morphological opening (0–6 voxels, first setting
   that does not leak) → 60 mm search radius with leak check → slice-wise hole filling.
-- **Measurement** (`src/measure/measure.ts`): long axis = largest in-plane extent on the slice with the largest
-  area, short axis = largest extent perpendicular to it (edge-to-edge convention), volume = voxels × voxel volume.
+- **Measurement** (`src/measure/measure.ts`): long axis = longest in-plane diameter, measured on the axial slice
+  where that diameter is largest (ties: larger area); short axis = longest diameter perpendicular to it on the same slice
+  (edge-to-edge convention); volume = voxels × voxel volume (col × row spacing × slice spacing), shown in mm³ and mL
+  (1 mL = 1000 mm³). Volume is reported only for outlines spanning ≥ 2 slices.
+- **Agreement with an expert outline** (`src/reference/compare.ts`): the expert DICOM SEG / RTSTRUCT is rasterised onto
+  the CT voxel grid in patient coordinates; Dice is **3-D** over the slices of both outlines, against the segment selected
+  in *Expert reference* (the panel shows the file's creator and description, so a manual expert outline and an
+  automated one stay distinguishable).
 - **Findings** (`src/findings/`): one shared labelmap, per-stroke undo, provenance and review status, timestamps
   (used for the time analysis), saved per series in IndexedDB and restored on reopen.
 
@@ -170,7 +182,11 @@ src/
   the outline can follow hilar structures on some slices and needs manual erasing. Ground-glass nodules need a
   lower threshold (slider) and are less reliable. Accuracy vs. expert outlines: see `docs/EVALUATION.md`.
 - **Follow-up “same nodule?” suggestion** uses closest patient-coordinate position — a hint, not registration.
-  The researcher confirms every match.
+  The researcher confirms every match. Tested on one public patient pair only. The sample's two scans use different
+  reconstruction kernels (STANDARD vs LUNG); the panel says so, and a measured change is not a growth claim.
+- **Link sheet** depends on the browser's File System Access permission (Chrome/Edge); it has not been verified
+  end-to-end on a researcher's computer. Use Export CSV when in doubt.
+- **Time saved is not measured yet.** The timing tools exist; no researcher session has been recorded.
 - Single-frame DICOM Part 10 CT only; no NIfTI, no zip; one axial viewport (no MPR).
 - A series is held in browser memory; Chrome/Edge needed for folder re-open after reload (File System Access API).
 - Saved work lives in that browser profile on that computer; clearing site data deletes it. Export CSV to keep it.

@@ -76,4 +76,39 @@ describe('FindingsStore series identity', () => {
     expect(s.seriesUid).toBe('series-test');
     s.dispose();
   });
+
+  it('keeps the first proposal, needs re-approval after an edit, and undo restores outline and numbers', () => {
+    const s = setup();
+    s.clickSegment({ i: 40, j: 40, k: 20 }, {});
+    const id = s.getSnapshot().selectedId as string;
+    const proposal = s.get(id)?.proposal;
+    expect(proposal?.volumeMm3).toBe(s.get(id)?.measurement?.volumeMm3);
+    s.approve(id);
+    const approvedVolume = s.get(id)?.approved?.measurement.volumeMm3;
+    s.beginStroke(id, false);
+    s.paint(20, 52, 40, 3, false);
+    s.endStroke();
+    const edited = s.get(id);
+    expect(edited?.status).toBe('unreviewed');
+    expect(edited?.proposal?.volumeMm3).toBe(proposal?.volumeMm3); // proposal unchanged by the edit
+    expect(edited?.approved?.measurement.volumeMm3).toBe(approvedVolume); // history kept, but not the record
+    s.undoLast(id);
+    expect(s.get(id)?.measurement?.volumeMm3).toBe(approvedVolume);
+    expect(s.get(id)?.status).toBe('approved');
+    s.dispose();
+  });
+
+  it('a no-earlier-match decision and a match exclude each other', () => {
+    const s = setup();
+    s.clickSegment({ i: 40, j: 40, k: 20 }, {});
+    const id = s.getSnapshot().selectedId as string;
+    s.setNoPrior(id, true);
+    expect(s.get(id)?.noPrior).toBeTruthy();
+    s.setMatch(id, { status: 'Confident', prior: { key: 'k', source: 'app', patientId: 'P', timepoint: 'Baseline', date: '2006-09-05', series: '1', noduleId: 'N1' }, at: 1 });
+    expect(s.get(id)?.noPrior).toBeUndefined();
+    s.setNoPrior(id, true);
+    expect(s.get(id)?.match).toBeUndefined();
+    s.dispose();
+  });
 });
+

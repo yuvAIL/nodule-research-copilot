@@ -36,7 +36,8 @@ export interface TimelineEvent {
     | 'rejected'
     | 'reopened'
     | 'matched'
-    | 'fields';
+    | 'fields'
+    | 'exported';
 }
 
 export interface Finding {
@@ -52,8 +53,13 @@ export interface Finding {
   seed?: { i: number; j: number; k: number };
   segmentation?: { thresholdHu: number; maxRadiusMm: number; erosion: number; leaked: boolean; lungConstrained?: boolean };
   measurement?: Measurement;
-  /** Values locked at approval time. */
+  /** Values locked at approval time. Kept after a later edit (status goes back to "to review") as history. */
   approved?: { measurement: Measurement; at: number };
+  /**
+   * The outline's measurement as first proposed (AI candidate or click segmentation), before any researcher edit.
+   * Kept separately so the record can show what the AI/algorithm proposed vs what was approved.
+   */
+  proposal?: Measurement;
   /** Slice range known to contain the outline (for fast re-measurement). */
   kMin: number;
   kMax: number;
@@ -64,6 +70,8 @@ export interface Finding {
   thumbnail?: string;
   /** Researcher-confirmed link to the same nodule on an earlier scan. */
   match?: FindingMatch;
+  /** Researcher decided this nodule has no earlier counterpart (new, or not visible before). Excludes `match`. */
+  noPrior?: { at: number };
   timeline: TimelineEvent[];
   /** Set for AI candidates. */
   ai?: AiProvenance;
@@ -90,4 +98,23 @@ export function secondsToApproval(f: Finding): number | undefined {
   const created = f.timeline.find((e) => e.action === 'created')?.t;
   const approved = [...f.timeline].reverse().find((e) => e.action === 'approved')?.t;
   return created !== undefined && approved !== undefined ? (approved - created) / 1000 : undefined;
+}
+
+/**
+ * A volume is only meaningful when the outline covers the lesion in 3-D. An outline painted on a single slice
+ * gives valid diameters on that slice, but its "volume" is just one slice thick and must not be read as the
+ * lesion volume.
+ */
+export function hasLesionVolume(m: Measurement | undefined): boolean {
+  return !!m && m.slicesSpanned >= 2;
+}
+
+/** The measurement that counts for the record: the approved one while approved, otherwise the current outline. */
+export function recordMeasurement(f: Finding): Measurement | undefined {
+  return f.status === 'approved' && f.approved ? f.approved.measurement : f.measurement;
+}
+
+/** True when the outline changed after it was approved (the finding needs approving again). */
+export function changedSinceApproval(f: Finding): boolean {
+  return f.status !== 'approved' && !!f.approved && f.timeline.some((e) => e.t > (f.approved as { at: number }).at && (e.action === 'edited' || e.action === 'undo' || e.action === 'reset' || e.action === 'resegmented'));
 }

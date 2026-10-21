@@ -98,9 +98,10 @@ a growth call below ~10–17 % volume change is within noise — for the expert 
 
 ## 5. Time saved
 
-**Before = self-reported by Daniel** (discovery call). **After = pending**: measured by the app's own timestamps
-(first finding → last action, shown as "m:ss on this scan" in the worklist) over ≥ 3 runs by Yuval on the sample, as a
-proxy until Daniel runs it.
+**Before = self-reported by Daniel** (discovery call). **After = not measured yet.** It will come from explicitly
+timed tasks in the app (▶ Start timed task → Finish, pauses excluded, phases and counts recorded) compared with observed
+manual sessions on the same scans; see `docs/PILOT_READINESS.md` §6. No researcher session has been timed, and no
+developer run is used as a proxy for researcher time.
 
 | Step (per scan, 1–3 nodules) | Before (self-reported) | With the tool | Status |
 |---|---|---|---|
@@ -112,7 +113,7 @@ proxy until Daniel runs it.
 | Follow-up re-find + compare | ~10 min | side-by-side, Δ mm / Δ % computed | **pending** |
 
 Instrumentation: every finding has a timeline (`created`, `edited`, `approved`, `rejected`, …) with timestamps; the CSV's
-*Minutes* column is creation → approval from these timestamps. Correction time is included because edits happen
+*Minutes* column is creation → approval per finding from these timestamps (not a task time). Correction time is included because edits happen
 between creation and approval.
 
 ## 6. Reproduce

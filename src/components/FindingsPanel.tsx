@@ -1,9 +1,9 @@
 import { useRef, useState, type ReactNode } from 'react';
 import type { Finding, Lobe, NoduleType } from '../findings/types';
-import { provenanceLabel } from '../findings/types';
+import { changedSinceApproval, hasLesionVolume, provenanceLabel } from '../findings/types';
 import { missingFields, type ScanInfo } from '../findings/record';
 import type { MatchStatus, PriorRecord } from '../findings/priors';
-import { FollowUpPanel } from './FollowUpPanel';
+import { FollowUpPanel, type OtherScan, type Recon } from './FollowUpPanel';
 import { activeMs } from '../findings/session';
 import { DEFAULT_THRESHOLD_HU } from '../measure/segment';
 
@@ -40,6 +40,11 @@ interface Props {
   suggestion?: { prior: PriorRecord; distanceMm: number };
   onMatch: (id: string, prior: PriorRecord, status: MatchStatus) => void;
   onClearMatch: (id: string) => void;
+  onNoPrior: (id: string, noPrior: boolean) => void;
+  onOpenScan: (uid: string) => void;
+  /** Reconstruction of the open scan (shown next to follow-up comparisons). */
+  recon?: Recon;
+  otherScans: OtherScan[];
   onImport: (file: File) => void;
   onGoToPriorPosition: (prior: PriorRecord) => void;
   /** Loads an AI result (DICOM SEG) as candidates to review. */
@@ -71,6 +76,11 @@ const STATUS_LABEL: Record<Finding['status'], string> = {
   approved: '✓ Approved',
   rejected: '✕ Rejected',
 };
+
+function statusLabel(f: Finding): string {
+  if (changedSinceApproval(f)) return '↻ Re-approve';
+  return STATUS_LABEL[f.status];
+}
 
 function SourceChip({ f }: { f: Finding }) {
   if (f.source === 'ai') return <span className="chip chip--ai" title="Proposed by the AI model">AI</span>;
@@ -171,8 +181,9 @@ export function FindingsPanel(props: Props) {
             <div className={`live-sheet${props.liveSheet.name && !props.liveSheet.needsPermission ? ' live-sheet--on' : ''}`}>
               {!props.liveSheet.name ? (
                 <>
-                  <span>
-                    <b>Sheet fills itself:</b> link a CSV once, every accepted nodule is written to it.
+                  <span title="Chrome/Edge only. You choose a CSV file on this computer and allow the browser to edit it. From then on this browser rewrites that whole file with every accepted finding of every scan measured here (one row per finding). Nothing is uploaded. After a reload the browser asks again (Resume). Excel locks open files: close it while working.">
+                    <b>Optional:</b> link a CSV file on this computer and this browser keeps it up to date with every accepted
+                    finding. Export CSV below always works.
                   </span>
                   <button type="button" className="ghost small" onClick={props.onLinkSheet}>
                     Link sheet…
@@ -181,7 +192,8 @@ export function FindingsPanel(props: Props) {
               ) : props.liveSheet.needsPermission ? (
                 <>
                   <span>
-                    Sheet <b>{props.liveSheet.name}</b> — paused after reload.
+                    Sheet <b>{props.liveSheet.name}</b>: not being written (the browser needs your permission again after a
+                    reload). Nothing is saved to it until you resume.
                   </span>
                   <button type="button" className="ghost small" onClick={props.onLinkSheet}>
                     Resume writing
@@ -208,7 +220,7 @@ export function FindingsPanel(props: Props) {
             </button>
             <span className="hint">
               {approved.length === 0
-                ? 'Approve findings to export them.'
+                ? 'Only accepted findings are exported. Accept at least one (A).'
                 : `${approved.length} approved${toReview ? ` · ${toReview} not yet reviewed (not exported)` : ''}${
                     incomplete ? ` · ${incomplete} missing Type/Lobe` : ''
                   }`}
@@ -266,9 +278,9 @@ export function FindingsPanel(props: Props) {
               )}
               {ai.length > 0 && added > 0 && <span> · {added} added by you</span>}
               {elapsed !== undefined && elapsed >= 1000 && (
-                <span className="muted" title="Active time from the app's own timestamps (breaks over 2 min excluded)">
+                <span className="muted" title="Activity between your first and last action, from the app's timestamps (gaps over 2 min left out). Not a timed task: use ▶ Start timed task in the header for a measured session.">
                   {' '}
-                  · {clock(elapsed)} on this scan
+                  · {clock(elapsed)} activity
                 </span>
               )}
               <div className="meter" aria-hidden="true">
@@ -296,7 +308,7 @@ export function FindingsPanel(props: Props) {
                     <span className="finding-dims mono">
                       {f.measurement ? `${fmt(f.measurement.longMm)} × ${fmt(f.measurement.shortMm)}` : '—'}
                     </span>
-                    <span className={`chip chip--${f.status}`}>{STATUS_LABEL[f.status]}</span>
+                    <span className={`chip chip--${f.status}`}>{statusLabel(f)}</span>
                     {(f.positionEstimate || props.lobeHints?.get(f.id) || props.changes?.get(f.id)) && (
                       <span className="finding-where">
                         {f.lobe
@@ -309,7 +321,7 @@ export function FindingsPanel(props: Props) {
                           return c ? (
                             <span
                               className={`delta-chip delta-chip--${c.dir}${c.confirmed ? '' : ' delta-chip--suggested'}`}
-                              title={c.confirmed ? `Volume vs ${c.vs} (confirmed same nodule)` : `Suggested pair: ${c.vs} — A or M confirms`}
+                              title={c.confirmed ? `Change vs ${c.vs} (you confirmed the same nodule)` : `Suggested by position: ${c.vs}. Not confirmed: select it and press M`}
                             >
                               {c.confirmed ? '' : '↔ '}
                               {c.text} vs {c.vs}
@@ -338,7 +350,7 @@ export function FindingsPanel(props: Props) {
         <section className="panel finding-card">
           <div className="finding-card-head">
             <h2>
-              {selected.name} <span className={`chip chip--${selected.status}`}>{STATUS_LABEL[selected.status]}</span>
+              {selected.name} <span className={`chip chip--${selected.status}`}>{statusLabel(selected)}</span>
             </h2>
             <button type="button" className="link" onClick={() => props.onGoTo(selected)} title="Go to the measured slice">
               Go to slice {selected.measurement ? selected.measurement.sliceIndex + 1 : ''}
@@ -357,20 +369,39 @@ export function FindingsPanel(props: Props) {
               </div>
               <div>
                 <dt>Volume</dt>
-                <dd className="mono">
-                  {fmt(selected.measurement.volumeMm3, 0)} mm³{' '}
-                  <span className="muted">({fmt(selected.measurement.volumeMm3 / 1000, 2)} mL)</span>
-                </dd>
+                {hasLesionVolume(selected.measurement) ? (
+                  <dd className="mono">
+                    {fmt(selected.measurement.volumeMm3, 0)} mm³{' '}
+                    <span className="muted">({fmt(selected.measurement.volumeMm3 / 1000, 2)} mL)</span>
+                  </dd>
+                ) : (
+                  <dd title="The outline covers one slice: diameters are valid, a lesion volume is not. Paint the neighbouring slices (or click the nodule with S) for a volume.">
+                    <span className="muted">— single slice: diameters only</span>
+                  </dd>
+                )}
               </div>
               <div className="metric--small">
                 <dt>Extent</dt>
                 <dd className="mono">
-                  {selected.measurement.slicesSpanned} slices · axes on slice {selected.measurement.sliceIndex + 1}
+                  {selected.measurement.slicesSpanned} slice{selected.measurement.slicesSpanned === 1 ? '' : 's'} · axes on slice {selected.measurement.sliceIndex + 1}
                 </dd>
               </div>
             </dl>
           ) : (
             <p className="hint">No outline yet — paint with the brush.</p>
+          )}
+          {selected.proposal && selected.measurement && selected.proposal !== selected.measurement && selected.edited && (
+            <div className="hint proposal-note">
+              Original {selected.source === 'ai' ? 'AI proposal' : 'outline'}: {fmt(selected.proposal.longMm)} × {fmt(selected.proposal.shortMm)} mm
+              {hasLesionVolume(selected.proposal) ? `, ${fmt(selected.proposal.volumeMm3, 0)} mm³` : ''} (kept for the record and the
+              export).
+            </div>
+          )}
+          {changedSinceApproval(selected) && (
+            <div className="warning-text" role="status">
+              Changed after approval: the new measurements are not final, and this finding is left out of the export until you
+              accept it again (A).
+            </div>
           )}
 
           {selected.positionEstimate && (
@@ -408,6 +439,15 @@ export function FindingsPanel(props: Props) {
               patientId={props.scan?.patientId ?? ''}
               onMatch={(prior, status) => props.onMatch(selected.id, prior, status)}
               onClearMatch={() => props.onClearMatch(selected.id)}
+              onNoPrior={(v) => props.onNoPrior(selected.id, v)}
+              onOpenScan={props.onOpenScan}
+              now={{ date: props.scan?.studyDate ?? '', timepoint: props.scan?.timepoint ?? '', recon: props.recon }}
+              otherScans={props.otherScans}
+              takenBy={
+                new Map(
+                  props.findings.flatMap((f) => (f.match && f.id !== selected.id ? [[f.match.prior.key, f.name] as [string, string]] : [])),
+                )
+              }
               onImport={props.onImport}
               onGoToPriorPosition={props.onGoToPriorPosition}
             />

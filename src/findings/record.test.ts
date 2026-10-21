@@ -71,4 +71,33 @@ describe('research record', () => {
   it('sanitises screenshot file names', () => {
     expect(screenshotName({ ...scan, patientId: 'a/b c', timepoint: 'Follow-up 1' }, finding())).toBe('a-b-c_Follow-up-1_N1.png');
   });
+
+  it('identifies the finding and series, and never writes a volume for a single-slice outline', () => {
+    const one = finding();
+    const flat = finding({ id: 'flat', source: 'manual', edited: false });
+    flat.measurement = { ...(flat.measurement as NonNullable<Finding['measurement']>), slicesSpanned: 1 };
+    flat.approved = { measurement: flat.measurement, at: 1 };
+    const rows = [toRow({ ...scan, seriesUid: 'S1' }, one), toRow({ ...scan, seriesUid: 'S1' }, flat)];
+    expect(rows[0]?.['Finding UID']).toBe('x');
+    expect(rows[0]?.['Series UID']).toBe('S1');
+    expect(rows[0]?.['Volume (mm3)']).toBe('31495');
+    expect(rows[0]?.['Volume basis']).toBe('3-D outline, 41 slices');
+    expect(rows[1]?.['Volume (mm3)']).toBe('');
+    expect(rows[1]?.['Volume basis']).toContain('single slice');
+  });
+
+  it('exports the approved values, not later unapproved edits, and keeps the original proposal', () => {
+    const f = finding({ source: 'ai' });
+    f.proposal = { ...(f.measurement as NonNullable<Finding['measurement']>), longMm: 50, volumeMm3: 25000 };
+    const row = toRow(scan, f);
+    expect(row['Long diameter (mm)']).toBe('58.5');
+    expect(row['Proposed long diameter (mm)']).toBe('50.0');
+    expect(row['Proposed volume (mm3)']).toBe('25000');
+  });
+
+  it('records a researcher decision of "no earlier match"', () => {
+    const row = toRow(scan, finding({ noPrior: { at: 1 } }));
+    expect(row['Match status']).toBe('No earlier match');
+  });
 });
+

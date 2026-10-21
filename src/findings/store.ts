@@ -180,6 +180,12 @@ export class FindingsStore {
     this.update(id, { measurement: m });
   }
 
+  /** Freezes the first measurement of an AI / click outline as the original proposal. */
+  private keepProposal(id: string): void {
+    const f = this.get(id);
+    if (f?.measurement && !f.proposal) this.update(id, { proposal: f.measurement });
+  }
+
   private pushUndo(id: string, entry: UndoEntry): void {
     const list = this.undo.get(id) ?? [];
     list.push(entry);
@@ -254,6 +260,7 @@ export class FindingsStore {
     this.findings = [...this.findings, finding];
     this.selectedId = finding.id;
     this.remeasure(finding.id);
+    this.keepProposal(finding.id);
     this.changed();
     return { ok: true, id: finding.id, created: true };
   }
@@ -312,6 +319,7 @@ export class FindingsStore {
       };
       this.findings = [...this.findings, finding];
       this.remeasure(finding.id);
+      this.keepProposal(finding.id);
       firstId ??= finding.id;
       added++;
     }
@@ -512,9 +520,15 @@ export class FindingsStore {
 
   /** Links (or unlinks) a finding to the same nodule on an earlier scan. Optionally adopts the earlier Nodule ID. */
   setMatch(id: string, match: Finding['match'], adoptName?: string): void {
-    const patch: Partial<Finding> = { match };
+    const patch: Partial<Finding> = { match, noPrior: undefined };
     if (adoptName && !this.findings.some((f) => f.id !== id && f.name === adoptName)) patch.name = adoptName;
     this.update(id, patch, 'matched');
+    this.changed();
+  }
+
+  /** Records that this nodule has no earlier counterpart (new or not seen before); clears any match. */
+  setNoPrior(id: string, noPrior: boolean): void {
+    this.update(id, { noPrior: noPrior ? { at: Date.now() } : undefined, match: undefined }, 'matched');
     this.changed();
   }
 

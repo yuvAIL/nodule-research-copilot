@@ -1818,3 +1818,124 @@ button.danger {
     box-shadow: 0 0 0 5px rgba(76, 195, 138, 0.05);
   }
 }
+
+/* ── timed tasks ─────────────────────────────────────────── */
+.timing-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.timing-bar--on {
+  padding: 2px 4px 2px 10px;
+  border: 1px solid rgba(231, 118, 111, 0.55);
+  border-radius: 999px;
+  background: rgba(231, 118, 111, 0.08);
+  color: var(--text);
+}
+.timing-bar--paused {
+  border-color: rgba(224, 179, 84, 0.55);
+  background: rgba(224, 179, 84, 0.08);
+}
+.timing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--error);
+  animation: timing-pulse 1.6s ease-in-out infinite;
+}
+.timing-bar--paused .timing-dot {
+  background: var(--warn);
+  animation: none;
+}
+@keyframes timing-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.timing-clock {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.timing-flag {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--warn);
+}
+.timing-sheet {
+  width: min(920px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+.timing-sheet h3 {
+  margin: 16px 0 6px;
+  font-size: 13px;
+}
+.timing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.timing-table th,
+.timing-table td {
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--panel-border);
+  vertical-align: top;
+}
+.timing-table td.worse {
+  color: var(--error);
+}
+.timing-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+.timing-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.timing-form label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+.timing-form label.grow {
+  flex: 1 1 220px;
+}
+.timing-form input[type='text'] {
+  min-width: 90px;
+}
+.error {
+  color: var(--error);
+  font-size: 12px;
+}
+
+/* ── follow-up comparison ─────────────────────────────────── */
+.chip--match-none {
+  color: var(--muted);
+  border-color: var(--panel-border);
+}
+.th-sub {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--muted);
+}
+.recon-note--warn,
+.proposal-note {
+  border-left: 2px solid var(--warn);
+  padding-left: 6px;
+}
+.empty-compare ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.match-source {
+  margin-top: 6px;
+}
+.match-row .chip {
+  white-space: normal;
+}

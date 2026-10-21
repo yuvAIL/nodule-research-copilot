@@ -27,6 +27,9 @@ export interface PriorRecord {
   thumbnail?: string;
   /** Centre of the nodule in patient coordinates (mm), when measured in this app. */
   centroidWorld?: [number, number, number];
+  /** Reconstruction of the earlier scan (app records only): a different kernel or slice thickness alone changes measurements. */
+  kernel?: string;
+  sliceThicknessMm?: number;
 }
 
 export interface FindingMatch {

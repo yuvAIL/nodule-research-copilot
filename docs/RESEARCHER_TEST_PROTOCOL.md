@@ -2,6 +2,13 @@
 
 *Status: **proposed protocol**. No session has been run yet. Until one is, nothing here is a usability result.*
 
+> **Updated 21 Oct 2026.** The current 20-minute plan (one scan, usability only) and the separate timing study are in
+> [`PILOT_READINESS.md` §6](PILOT_READINESS.md#6-sessions-with-daniel). Differences from the plan below:
+> - A follow-up match is confirmed with **M**, not with **A**.
+> - Times from the usability session are not used for time saved.
+> - A timed task uses **▶ Start timed task → Finish** with the expert outline hidden.
+> - "Session summary → Start a new timed run" only resets the findings.
+
 **Who:** one research reader (Daniel Reyes or another fellow), one facilitator. **Where:** reader's own laptop,
 Chrome, live site or local copy. **Data:** public, de-identified CT only (RIDER sample + LIDC-IDRI cases).
 **Recorded:** the app's Session summary CSV (timestamps, corrections, misses), the exported research CSV, the
@@ -9,8 +16,8 @@ facilitator's notes. Optional screen recording with the reader's consent.
 
 ## Before the session (facilitator, 5 min)
 
-1. Open the site once, so the sample is cached. In **Session summary**, choose **Start a new timed run** on both
-   sample scans, so the worklist is fresh.
+1. Open the site once in a fresh browser profile (or clear site data), so the sample is cached and the worklist is
+   fresh.
 2. Have the LIDC case folder ready (CT + AI result), with the reader's case ready to open.
 3. Explain the ground rules: the AI proposes and the reader decides. Think aloud. There are no wrong answers, and we
    are testing the tool, not the reader.
@@ -23,7 +30,7 @@ facilitator's notes. Optional screen recording with the reader's consent.
 | 2–5 | **AI worklist** | Reviews the AI candidates: **J/K** to move, looks at each outline, **A** accept / **R** reject. | Time to the first decision; hesitation on small candidates; whether the location hint (lobe) is trusted. |
 | 5–9 | **Correction** | Picks the AI outline that looks worst. Turns on the expert outline (dotted magenta), then fixes the edge with **E** erase / **B** brush. Watches the volume update, then approves. | Number of strokes and time (logged). Is undo (**⌘Z**) found? Is "edited by researcher" noticed? |
 | 9–12 | **Difficult case** | Opens a LIDC ground-glass or small nodule case. Reviews the AI result and adds a missed nodule with **S** + click (or brush). | Does the reader find the miss? With the thick-slab view (**T**)? How long does adding it take? |
-| 12–15 | **Follow-up + export** | Presses **.** to open the follow-up, checks the suggested pair ("▼% vs Baseline?"), and accepts it. Then exports the CSV or links the sheet and opens it in Excel. | Is the pair trusted? Is the change understood as volume? Is anything still re-typed? |
+| 12–15 | **Follow-up + export** | Presses **.** to open the follow-up, checks the suggested pair ("▼% vs Baseline?"), accepts the measurement (**A**), and confirms or rejects the match (**M** / *Not in earlier scan*). Then exports the CSV and opens it in Excel. | Is the pair trusted? Is the change understood as volume? Is anything still re-typed? |
 | 15–20 | **Feedback** | Answers the questions below. | Record the answers verbatim. |
 
 ## Questions (record answers verbatim)
@@ -41,7 +48,7 @@ facilitator's notes. Optional screen recording with the reader's consent.
 
 ## After the session
 
-- Save the Session summary CSV for each scan, plus the research CSV.
+- Save the research CSVs (and the Timing CSV if a timed task was run, labelled "usability, not for time saved").
 - Fill in the results table in `TIME_SAVINGS_EVALUATION.md §6`, marked "researcher session, <date>, <reader>".
 - Write the observations as **observed** (what the reader did) vs **reported** (what the reader said).
 - Do not generalise from one reader. The next step is the A-vs-B protocol (TIME_SAVINGS_EVALUATION.md §5).

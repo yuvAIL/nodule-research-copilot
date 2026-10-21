@@ -61,6 +61,20 @@ The researcher's only cost is starting it, which is one command for a whole fold
 
 ### 3c. Operator interaction — instrumentation (ready, no researcher data yet)
 
+> **Updated 21 Oct 2026: explicit timed tasks.** The header has **▶ Start timed task / Pause / Resume / Finish**.
+> - **Task time:** Start → Finish minus explicit pauses. Pause time is reported, and no 2-minute idle rule applies.
+> - **Phases:** review, correction, adding, documentation/export and other. They do not overlap and add up to the task
+>   time.
+> - **Counts:** accepted, rejected, edited, added and exported findings.
+> - **Completed:** only if a CSV was exported during the task.
+> - **Expert outline:** hidden at Start; showing it marks the session *reference-assisted*.
+> - **Manual sessions:** **Timing** stores observed ones (entered by an observer) and computes time saved =
+>   manual − assisted, only for scans with both. Negative values are kept.
+> - **Code and tests:** `src/findings/timing.ts`, tests in `timing.test.ts`, Timing CSV export.
+>
+> The implicit per-scan activity time described below is still shown, as "activity". It is **not** used for time
+> saved.
+
 Captured automatically from the app's own timestamps (`src/findings/session.ts`, shown in **Session summary**, saved
 as CSV with one row per scan):
 
@@ -98,6 +112,10 @@ plausible: the outline (15–25 min) and re-typing (3–5 min) steps are mostly 
 researcher is timed**. Small and ground-glass nodules (LIDC results) are where corrections and misses concentrate.
 
 ## 5. Protocol for a fair A-vs-B comparison (to run with Daniel or another reader)
+
+*Updated plan, using the app's timed tasks and observed manual entries:
+[`PILOT_READINESS.md` §6b](PILOT_READINESS.md#6b-then-a-timing-study-separate-several-scans). Pauses are explicit on
+both sides; the 2-min idle rule below is superseded.*
 
 **Task (same for both):** find every nodule ≥ 3 mm; record long/short axis for each; full outline + volume for the
 largest nodule; enter the lab's spreadsheet row(s); for follow-ups, match each nodule to the prior scan.

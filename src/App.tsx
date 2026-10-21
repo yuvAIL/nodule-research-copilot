@@ -12,7 +12,7 @@ import { FindingsPanel, type VolumeStatus } from './components/FindingsPanel';
 import { BRUSH_SIZES_MM } from './components/Toolbar';
 import { buildVolume } from './cornerstone/volumeData';
 import { FindingsStore, type StoreSnapshot } from './findings/store';
-import type { Finding } from './findings/types';
+import { hasLesionVolume, type Finding } from './findings/types';
 import { downloadDataUrl, downloadText, screenshotName, toCsv, toRow, type ResearchRow, type ScanInfo } from './findings/record';
 import { formatDicomDate } from './dicom/headerMapping';
 import { idbGet, idbSet } from './session/idb';
@@ -21,6 +21,8 @@ import { nearestSlice, voxelToWorld, type Vec3 } from './measure/volume';
 import { FileLoader, type ResumeOffer } from './components/FileLoader';
 import { MetadataPanel } from './components/MetadataPanel';
 import { SessionSummary } from './components/SessionSummary';
+import { TimingBar, TimingDialog } from './components/TimingPanel';
+import { isPaused, phaseBreakdown, sessionCounts, type ScanRef, type TimedSession } from './findings/timing';
 import { PatientTimeline } from './components/PatientTimeline';
 import { ReferencePanel, type AgreementView, type LoadedReference } from './components/ReferencePanel';
 import type { Labelmap } from './measure/labelmap';
@@ -106,7 +108,15 @@ export default function App() {
   const [mipMm, setMipMm] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
+  /** Rows written by the most recent Export CSV of this scan (not cumulative: re-exporting writes the same rows again). */
   const [exportedRows, setExportedRows] = useState(0);
+  /** Explicitly timed tasks (Start → Finish) and observed manual sessions, stored in this browser. */
+  const [timedSessions, setTimedSessions] = useState<TimedSession[]>([]);
+  const [showTiming, setShowTiming] = useState(false);
+  const timingActiveRef = useRef(false);
+  useEffect(() => {
+    timingActiveRef.current = timedSessions.some((t) => t.mode === 'assisted' && !t.endedAt);
+  });
   /** When Export CSV was used, per series (for the timed-run summary). */
   const [exportTimes, setExportTimes] = useState<Record<string, number[]>>({});
   /** Linked CSV file that is rewritten after every change ("the sheet fills itself"). */
@@ -142,6 +152,8 @@ export default function App() {
   const [timepoints, setTimepoints] = useState<Record<string, string>>({});
   const [priors, setPriors] = useState<PriorRecord[]>([]);
   const [priorsVersion, setPriorsVersion] = useState(0);
+  /** Accepted findings saved in this browser per series of this patient (explains an empty comparison). */
+  const [acceptedBySeries, setAcceptedBySeries] = useState<Record<string, number>>({});
 
   const series = allSeries.find((s) => s.seriesInstanceUid === selectedUid);
   const current = series?.instances[viewer.index];
@@ -183,8 +195,11 @@ export default function App() {
         studyDate: formatDicomDate(firstHeader?.studyDate) ?? '',
         timepoint: timepointOf(series),
         series: [firstHeader?.seriesNumber, firstHeader?.seriesDescription].filter((v) => v !== undefined && v !== '').join(' — '),
+        seriesUid: series.seriesInstanceUid,
       }
     : undefined;
+  /** Reconstruction of the open scan: shown next to follow-up comparisons (kernel and slice thickness change measurements). */
+  const recon = series ? { kernel: firstHeader?.convolutionKernel, sliceThicknessMm: firstHeader?.sliceThickness } : undefined;
 
   // Remember the timepoint chosen for each series.
   useEffect(() => {
@@ -206,11 +221,20 @@ export default function App() {
     if (!scanInfo) return;
     const rows = snap.findings.filter((f) => f.status === 'approved').map((f) => toRow(scanInfo, f));
     const name = `${scanInfo.patientId || 'scan'}_${scanInfo.timepoint}_${new Date().toISOString().slice(0, 10)}.csv`.replace(/\s+/g, '-');
-    downloadText(name, toCsv(rows));
-    setExportedRows((n) => n + rows.length);
+    if (rows.length === 0) {
+      setNotice('Nothing to export yet: only accepted findings are exported. Accept at least one finding (A) first.');
+      return;
+    }
+    try {
+      downloadText(name, toCsv(rows));
+    } catch (e) {
+      setNotice(`Export failed: ${errorText(e)}. Nothing was saved.`);
+      return;
+    }
+    setExportedRows(rows.length);
     const exportUid = store?.seriesUid;
     if (exportUid) setExportTimes((m) => ({ ...m, [exportUid]: [...(m[exportUid] ?? []), Date.now()] }));
-    setNotice(`Exported ${rows.length} row${rows.length === 1 ? '' : 's'} → ${name}`);
+    setNotice(`Exported ${rows.length} accepted finding${rows.length === 1 ? '' : 's'} → ${name} (your browser's Downloads folder). One row per finding; exporting again writes the same rows, not duplicates.`);
   };
 
   /** Reject with an inline "Undo" in the toast. */
@@ -284,7 +308,8 @@ export default function App() {
             warnings,
           },
         });
-        setShowReference(true);
+        // During a timed task the outline is loaded but stays hidden (showing it would make the session reference-assisted).
+        if (!timingActiveRef.current) setShowReference(true);
       } catch (e) {
         setReferenceError(`Could not read ${file.name}: ${errorText(e)}`);
       }
@@ -400,10 +425,85 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [reference, store, selectedFinding]);
 
+  // ── timed tasks ───────────────────────────────────────────────
+  useEffect(() => {
+    void idbGet<TimedSession[]>('timing-sessions').then((list) => {
+      if (list?.length) setTimedSessions(list);
+    });
+  }, []);
+  const updateSessions = useCallback((fn: (list: TimedSession[]) => TimedSession[]) => {
+    setTimedSessions((prev) => {
+      const next = fn(prev);
+      void idbSet('timing-sessions', next);
+      return next;
+    });
+  }, []);
+  const activeSession = timedSessions.find((t) => t.mode === 'assisted' && !t.endedAt);
+  const scanRef: ScanRef | undefined = scanInfo
+    ? { patientId: scanInfo.patientId, studyDate: scanInfo.studyDate, timepoint: scanInfo.timepoint, seriesUid: scanInfo.seriesUid, series: scanInfo.series }
+    : undefined;
+  const referenceVisible = !!reference && reference.seriesUid === seriesUid && showReference && !hideOverlays;
+  // Showing the expert outline during a timed task marks it reference-assisted (not ordinary use).
+  useEffect(() => {
+    if (activeSession && referenceVisible && !isPaused(activeSession) && !activeSession.referenceShown) {
+      updateSessions((list) => list.map((t) => (t.id === activeSession.id ? { ...t, referenceShown: true } : t)));
+    }
+  }, [activeSession, referenceVisible, updateSessions]);
+  const startTimed = () => {
+    if (!store || !scanRef || activeSession) return;
+    const hid = referenceVisible;
+    if (hid) setShowReference(false);
+    updateSessions((list) => [
+      ...list,
+      { id: `assisted-${Date.now().toString(36)}`, mode: 'assisted', scan: scanRef, startedAt: Date.now(), pauses: [], referenceShown: false, completed: false },
+    ]);
+    setNotice(
+      `Timing started for ${scanRef.patientId} · ${scanRef.timepoint}. Do the whole task: review, correct, add missed, accept, Export CSV, then Finish.` +
+        (hid ? ' The expert outline is hidden (ordinary use); showing it marks this session reference-assisted.' : ''),
+    );
+  };
+  const pauseTimed = (pause: boolean) => {
+    if (!activeSession) return;
+    const now = Date.now();
+    updateSessions((list) =>
+      list.map((t) => {
+        if (t.id !== activeSession.id) return t;
+        if (pause) return isPaused(t) ? t : { ...t, pauses: [...t.pauses, { from: now }] };
+        return { ...t, pauses: t.pauses.map((p, n) => (n === t.pauses.length - 1 && p.to === undefined ? { ...p, to: now } : p)) };
+      }),
+    );
+  };
+  const finishTimed = () => {
+    if (!activeSession) return;
+    const now = Date.now();
+    const uid = activeSession.scan?.seriesUid;
+    const sameScan = !!store && store.seriesUid === uid;
+    const closed: TimedSession = {
+      ...activeSession,
+      endedAt: now,
+      pauses: activeSession.pauses.map((p) => (p.to === undefined ? { ...p, to: now } : p)),
+    };
+    const times = uid ? (exportTimes[uid] ?? []) : [];
+    if (sameScan) {
+      closed.phases = phaseBreakdown(closed, snap.findings, times, now);
+      closed.counts = sessionCounts(snap.findings, times, closed);
+    }
+    const exportsInside = times.filter((t) => t >= closed.startedAt && t <= now).length;
+    closed.completed = exportsInside > 0;
+    if (!sameScan) closed.notes = [closed.notes, 'Finished on another scan: phases not broken down.'].filter(Boolean).join(' ');
+    updateSessions((list) => list.map((t) => (t.id === closed.id ? closed : t)));
+    const mins = ((now - closed.startedAt - closed.pauses.reduce((n, p) => n + ((p.to ?? now) - p.from), 0)) / 60000).toFixed(1);
+    setNotice(
+      closed.completed
+        ? `Timed task finished: ${mins} min (pauses excluded). Open Timing to see the phases or add the manual time for this scan.`
+        : `Timed task stopped at ${mins} min, marked NOT completed (no CSV was exported during it). It is not used for time saved.`,
+    );
+  };
+
   /** Rewrites the linked sheet with every approved row of every scan measured in this browser. */
-  const syncSheet = useCallback(async () => {
+  const syncSheet = useCallback(async (): Promise<'saved' | 'needs-permission' | 'failed' | 'none'> => {
     const current = sheetRef.current;
-    if (!current) return;
+    if (!current) return 'none';
     try {
       const uids = (await idbGet<string[]>('sheet-series')) ?? [];
       const rows: ResearchRow[] = [];
@@ -413,8 +513,10 @@ export default function App() {
       );
       const ok = await writeSheet(current.handle, toCsv(rows));
       setSheet((s) => (s && s.handle === current.handle ? { ...s, rows: rows.length, savedAt: ok ? Date.now() : s.savedAt, needsPermission: !ok, error: undefined } : s));
+      return ok ? 'saved' : 'needs-permission';
     } catch (e) {
       setSheet((s) => (s ? { ...s, error: errorText(e) } : s));
+      return 'failed';
     }
   }, []);
 
@@ -432,8 +534,14 @@ export default function App() {
       if (!handle) return;
       sheetRef.current = { handle, rows: 0 };
       setSheet({ handle, rows: 0 });
-      await syncSheet();
-      setNotice(`Sheet linked: ${handle.name} — every accepted nodule is written to it automatically.`);
+      const result = await syncSheet();
+      if (result === 'saved') {
+        setNotice(`Sheet linked: ${handle.name}. This browser now rewrites that file with every accepted finding of every scan measured here. Close it in Excel while working (Excel locks open files).`);
+      } else if (result === 'needs-permission') {
+        setNotice(`${handle.name} is selected, but the browser did not give write permission, so nothing was saved. Click Link sheet again and choose "Allow", or use Export CSV.`);
+      } else {
+        setNotice(`Could not write ${handle.name}, so nothing was saved. Close it if it is open in Excel and click Link sheet again, or use Export CSV.`);
+      }
     } catch (e) {
       setNotice(`Could not link the sheet: ${errorText(e)}`);
     }
@@ -468,12 +576,15 @@ export default function App() {
             noduleId: f.name,
             longMm: m?.longMm,
             shortMm: m?.shortMm,
-            volumeMm3: m?.volumeMm3,
+            // A single-slice outline has diameters but no lesion volume.
+            volumeMm3: hasLesionVolume(m) ? m?.volumeMm3 : undefined,
             type: f.type,
             lobe: f.lobe,
             notes: f.notes,
             thumbnail: f.thumbnail,
             centroidWorld: c ? voxelToWorld(store.volume, c.i, c.j, c.k) : undefined,
+            kernel: recon?.kernel,
+            sliceThicknessMm: recon?.sliceThicknessMm,
           };
         });
       const rows = findings.filter((f) => f.status === 'approved').map((f) => toRow(info, f));
@@ -505,12 +616,18 @@ export default function App() {
     void (async () => {
       const uids = (await idbGet<string[]>(`patientSeries:${patientId}`)) ?? [];
       const fromApp: PriorRecord[] = [];
+      const counts: Record<string, number> = {};
       for (const uid of uids) {
         if (uid === seriesUid) continue;
-        fromApp.push(...((await idbGet<PriorRecord[]>(`summary:${uid}`)) ?? []));
+        const recs = (await idbGet<PriorRecord[]>(`summary:${uid}`)) ?? [];
+        counts[uid] = recs.length;
+        fromApp.push(...recs);
       }
       const fromSheet = (await idbGet<PriorRecord[]>(`imported:${patientId}`)) ?? [];
-      if (!cancelled) setPriors([...fromApp, ...fromSheet]);
+      if (!cancelled) {
+        setPriors([...fromApp, ...fromSheet]);
+        setAcceptedBySeries(counts);
+      }
     })();
     return () => {
       cancelled = true;
@@ -542,7 +659,16 @@ export default function App() {
 
   // Follow-up: every finding is paired with its most likely earlier self (one-to-one, earlier scans only).
   const pairs = useMemo(
-    () => pairFindings(snap.findings.map((f) => ({ id: f.id, centroidWorld: centroidWorld(f) })), priors, scanInfo?.studyDate ?? ''),
+    () => {
+      // Suggestions only for findings without a decision; an earlier nodule already confirmed for one finding is not
+      // suggested for another.
+      const taken = new Set(snap.findings.flatMap((f) => (f.match ? [f.match.prior.key] : [])));
+      return pairFindings(
+        snap.findings.filter((f) => !f.match && !f.noPrior && f.status !== 'rejected').map((f) => ({ id: f.id, centroidWorld: centroidWorld(f) })),
+        priors.filter((p) => !taken.has(p.key)),
+        scanInfo?.studyDate ?? '',
+      );
+    },
     [snap.findings, priors, scanInfo?.studyDate, store], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const suggestion = selectedFinding ? pairs.get(selectedFinding.id) : undefined;
@@ -553,7 +679,8 @@ export default function App() {
       if (f.status === 'rejected' || !f.measurement) continue;
       const prior = f.match?.prior ?? pairs.get(f.id)?.prior;
       if (!prior) continue;
-      const c = changeLabel(prior, f.measurement);
+      const m = f.measurement;
+      const c = changeLabel(prior, { longMm: m.longMm, volumeMm3: hasLesionVolume(m) ? m.volumeMm3 : undefined });
       if (c) out.set(f.id, { ...c, vs: prior.timepoint || prior.date || 'earlier', confirmed: !!f.match });
     }
     return out;
@@ -610,12 +737,10 @@ export default function App() {
       filled.push(`Lobe ${lh.lobe}`);
     }
     if (filled.length) store.setFields(id, patch);
-    // Accepting a follow-up finding also confirms its suggested earlier self (change it in the card).
-    const pair = !f.match ? pairs.get(id) : undefined;
-    if (pair) {
-      store.setMatch(id, { status: 'Confident', prior: pair.prior, at: Date.now() }, pair.prior.noduleId);
-      filled.push(`paired with ${pair.prior.noduleId} (${pair.prior.timepoint})`);
-    }
+    // Accepting approves the measurement only. A suggested earlier match stays a suggestion until the researcher
+    // confirms it (M, or the buttons in the card): approval of a measurement is not confirmation of identity.
+    const pair = !f.match && !f.noPrior ? pairs.get(id) : undefined;
+    if (pair) filled.push(`suggested match ${pair.prior.noduleId} (${pair.prior.timepoint}): press M to confirm`);
     if (filled.length) setNotice(`${f.name} accepted · ${filled.join(' · ')} — change any time in the card.`);
     // Keep a small picture of the measured slice for the record and later follow-up comparison.
     withFindingSlice(f, () => {
@@ -808,6 +933,7 @@ export default function App() {
       if (e.key === 'Escape') {
         setShowHelp(false);
         setShowSummary(false);
+        setShowTiming(false);
       }
       if ((e.key === ',' || e.key === '.') && series && timeline.length > 1) {
         const at = timeline.findIndex((x) => x.seriesInstanceUid === series.seriesInstanceUid);
@@ -1124,6 +1250,15 @@ export default function App() {
           <button type="button" className="ghost small" onClick={() => setLeftCollapsed((v) => !v)} title="Show/hide the scan panel">
             {leftCollapsed ? 'Show scan panel' : 'Hide scan panel'}
           </button>
+          <TimingBar
+            active={activeSession}
+            canStart={!!store && !!scanRef}
+            onStart={startTimed}
+            onPause={() => pauseTimed(true)}
+            onResume={() => pauseTimed(false)}
+            onFinish={finishTimed}
+            onOpen={() => setShowTiming(true)}
+          />
           <button type="button" className="ghost small" disabled={!store} onClick={() => setShowSummary(true)}>
             Session summary
           </button>
@@ -1151,6 +1286,19 @@ export default function App() {
               setNotice('All findings deleted. Load the AI result again (Worklist → Load AI result…) to start a timed run.');
             }
           }}
+        />
+      )}
+
+      {showTiming && (
+        <TimingDialog
+          sessions={timedSessions}
+          currentScan={scanRef}
+          onAddManual={(t) => {
+            updateSessions((list) => [...list, t]);
+            setNotice('Observed manual session added.');
+          }}
+          onRemove={(id) => updateSessions((list) => list.filter((t) => t.id !== id))}
+          onClose={() => setShowTiming(false)}
         />
       )}
 
@@ -1429,8 +1577,22 @@ export default function App() {
           if (r && !r.ok) setNotice(r.reason);
         }}
         onFields={(id, patch) => store?.setFields(id, patch)}
-        priors={priors}
+        priors={priors.filter((p) => !scanInfo?.studyDate || !p.date || p.date < scanInfo.studyDate)}
         suggestion={suggestion}
+        recon={recon}
+        otherScans={timeline
+          .filter((x) => x.seriesInstanceUid !== seriesUid)
+          .map((x) => ({
+            uid: x.seriesInstanceUid,
+            label: `${timepointOf(x)} · series ${x.instances[0]?.seriesNumber ?? '?'}`,
+            date: formatDicomDate(x.instances[0]?.studyDate) ?? '',
+            accepted: acceptedBySeries[x.seriesInstanceUid] ?? 0,
+          }))}
+        onOpenScan={switchSeries}
+        onNoPrior={(id, v) => {
+          store?.setNoPrior(id, v);
+          if (v) setNotice('Recorded: no earlier match. It is exported as a new nodule ("No earlier match").');
+        }}
         onMatch={(id, prior, status) => store?.setMatch(id, { status, prior: { ...prior, thumbnail: prior.thumbnail }, at: Date.now() }, prior.noduleId)}
         onClearMatch={(id) => store?.setMatch(id, undefined)}
         onImport={(file) => void importSheet(file)}
