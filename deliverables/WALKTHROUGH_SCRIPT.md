@@ -36,9 +36,9 @@ detail lives here. Numbers trace to `EVIDENCE_REGISTER.md` (E-numbers). Say "we 
 ## Slide 3 · From the hospital scan to your sheet (2 min)
 
 - Walk left to right. He exports the scan as for any research scan → one command runs the AI (~97 s per scan,
-  measured; can run overnight) → he opens the folder in Chrome → he reviews, fixes and approves → approved nodules
-  export as a CSV in his sheet's columns (opens in Excel).
-- Only step 4 needs his judgement. The rest is machine time.
+  measured; can run overnight) → he opens the folder in Chrome → he reviews, fixes and approves → one click exports
+  the approved nodules as a CSV in his sheet's columns (opens in Excel).
+- Only step 4 needs his judgement; step 5 is one click. The rest is machine time.
 - Scans stay on the lab computer: the browser blocks connections to other sites (verified, E22). The AI model
   sends anonymous usage statistics by default; our run script switches that off before every run.
 - Setup is one Python install (TotalSegmentator) on the lab computer. No server and no hospital connection, so no
@@ -62,12 +62,16 @@ detail lives here. Numbers trace to `EVIDENCE_REGISTER.md` (E-numbers). Say "we 
   once and is one undo away.
 - Say plainly: the strokes were made by our test script, so this shows the mechanism, not how long it takes a
   person. Correction time is the open question (slide 8).
-- Keys: A accept, R reject, B brush, E erase, S click to add a missed nodule (logged as added by the researcher).
+- Keys: A accept, R reject, B brush, E erase, S click to add a missed nodule (logged as added by the researcher), ⌘Z undo.
+- If he edits a nodule he already approved, it goes back to "Re-approve" and is left out of the export until he accepts
+  it again. The AI's original numbers stay in the export next to his.
+- A nodule outlined on one slice only gets diameters, no volume; the app says so.
 
 ## Slide 6 · Each nodule gets a suggested match from the earlier scan (1.5 min)
 
 - Baseline 5 Sep 2006 and follow-up 20 Sep 2006, same patient. The app paired N1 with its earlier self (38 mm
-  apart, closest first) and computed the change. The "?" stays until he confirms (E9).
+  apart, closest first) and computed the change. The "?" stays until he confirms:
+  accepting the measurement (A) does not confirm the match. M confirms it; "Not in earlier scan" records no match (E9).
 - Caution: the two scans were reconstructed differently (STANDARD vs LUNG kernel), there is no expert outline on
   the baseline, and same-day repeat scans already differ by a median of 9.5 % (our click) to 17 % (expert) in
   volume (E10). The app does the re-finding and the arithmetic; whether it shrank is his call.
@@ -89,10 +93,11 @@ detail lives here. Numbers trace to `EVIDENCE_REGISTER.md` (E-numbers). Say "we 
 
 - Measured on RIDER: 59 scans of 31 patients (TEST + RETEST), one expert-labelled tumour per scan. The tumour was
   found on 53 (90 %; stricter Dice ≥ 0.5: 43/59). Median Dice 0.76 over the 53 found (misses excluded, listed
-  separately). A median of 3 extra candidates per scan to reject, up to 30 on a few scans. AI time 97 s (E3–E6). Context, not equivalence: on one scan, 5 readers using a
+  separately). A median of 3 additional candidates per scan to review, up to 30 on a few scans (not adjudicated, so not called false positives). AI time 97 s (E3–E6). Context, not equivalence: on one scan, 5 readers using a
   semi-automatic tool scored 0.77–0.90 against the same expert (E19).
-- Time: today 25–40 min (his estimate), goal 12–20 min, with the tool **not measured yet** (E17). The app already
-  logs every action, correction and pause, so one timed session gives the answer.
+- Time: today 25–40 min (his estimate), goal 12–20 min, with the tool **not measured yet** (E17). The app now
+  times a task explicitly (Start → Finish, pauses excluded, expert outline hidden) and splits review, correction and
+  export time. Time saved needs manual sessions on the same scans as well, timed by an observer.
 - Not proven: researcher time saved, and ground-glass. Time saved will depend mostly on how long the edge
   corrections take, since every solid outline came out too small. False positives are only an upper bound (LIDC:
   a median of 1 extra candidate per scan).
@@ -102,9 +107,10 @@ detail lives here. Numbers trace to `EVIDENCE_REGISTER.md` (E-numbers). Say "we 
 - Read his quote. It is his written feedback, not an observation of him using the tool (E18).
 - Ask the three questions and write the answers down word for word. Question 1 is a task, not an opinion: he already
   said the flow fits; now we want to see where he gets stuck.
-- Next step: a 20-minute hands-on session on one scan (`docs/RESEARCHER_TEST_PROTOCOL.md`). Then a planned timing
+- Next step: a 20-minute hands-on session on one scan (`docs/PILOT_READINESS.md` §6a). It is about where he gets stuck;
+  its times are not used for time saved. Then a planned timing
   study: the same task on a few scans, manual vs with the tool, with correction time measured separately and the
-  order swapped to limit learning effects (`docs/TIME_SAVINGS_EVALUATION.md` §5).
+  order swapped to limit learning effects (`docs/PILOT_READINESS.md` §6b).
 
 ## If asked
 

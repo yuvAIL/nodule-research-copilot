@@ -19,7 +19,8 @@ were found 26 of 27 times (15 of 16 at ≤ 10 mm), but every outline came out to
 before any volume is used. **Ground-glass: 0 of 5 found.** For those the tool doesn't help yet, and you'd keep
 searching by hand.
 • **Time saved:** not measured yet. Since the AI's outlines come out too small, the real question is how long the
-edge corrections take you. The app logs every action, correction and pause.
+edge corrections take you. The app now times the whole task (start to finish,
+with the expert outline hidden) and splits review, correction and export time.
 
 Three quick questions (a one-line answer each is plenty):
 1. Could you try one scan on your own and tell us where you get stuck?

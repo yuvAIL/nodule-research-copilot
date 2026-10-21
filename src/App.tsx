@@ -1443,7 +1443,19 @@ export default function App() {
           </section>
         )}
 
-        {series && (
+        {series && activeSession && !showReference && reference ? (
+          // During a timed task the expert outline AND its numbers (sizes, Dice) stay out of sight: ordinary use.
+          <section className="panel reference">
+            <h2>Expert reference</h2>
+            <p className="hint">
+              Hidden during the timed task, together with its measurements and agreement. Showing it marks the session
+              reference-assisted (not ordinary use).
+            </p>
+            <button type="button" className="ghost small" onClick={() => setShowReference(true)}>
+              Show anyway (reference-assisted)
+            </button>
+          </section>
+        ) : series && (
           <ReferencePanel
             ready={!!store}
             reference={reference?.info}
