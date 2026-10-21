@@ -110,5 +110,21 @@ describe('FindingsStore series identity', () => {
     expect(s.get(id)?.match).toBeUndefined();
     s.dispose();
   });
+
+  it('records whether Type/Lobe were auto-filled or set by the researcher, and real screenshot files', () => {
+    const s = setup();
+    s.clickSegment({ i: 40, j: 40, k: 20 }, {});
+    const id = s.getSnapshot().selectedId as string;
+    s.setFields(id, { type: 'solid', lobe: 'RUL' }, 'auto');
+    expect(s.get(id)?.fieldSource).toEqual({ type: 'auto', lobe: 'auto' });
+    s.setFields(id, { lobe: 'RML' });
+    expect(s.get(id)?.fieldSource).toEqual({ type: 'auto', lobe: 'researcher' });
+    s.setFields(id, { type: '' });
+    expect(s.get(id)?.fieldSource?.type).toBeUndefined();
+    expect(s.get(id)?.screenshotFile).toBeUndefined();
+    s.setScreenshotFile(id, 'P_Baseline_N1.png');
+    expect(s.get(id)?.screenshotFile).toBe('P_Baseline_N1.png');
+    s.dispose();
+  });
 });
 

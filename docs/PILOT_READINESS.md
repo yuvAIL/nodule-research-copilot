@@ -169,7 +169,7 @@ All re-checked on 20 Oct (`docs/VALIDATION_AUDIT.md`); unchanged today.
 |---|---|---|
 | Target tumour found on 53/59 RIDER scans, 31 patients | Verified | Hit = ≥ 1 voxel overlap; stricter: Dice ≥ 0.5 → 43/59 |
 | Median Dice 0.76 | Verified | 3-D, vs the MANUAL expert segment, over the 53 hits only (misses excluded) |
-| LIDC ground-glass 0/5, part-solid 1/3, solid 26/27 | Verified | 15 scans, 35 nodules outlined by ≥ 3 of 4 readers; every found solid outline too small |
+| LIDC ground-glass 0/5, part-solid 1/3, solid 26/27 | Verified | 15 scans, 35 nodules outlined by ≥ 3 of 4 readers; every found solid outline too small. The model was trained partly on LIDC-IDRI (subject list not public): detection rates may be optimistic |
 | ~97 s inference per scan | Verified on LIDC | Median 97 s (69–129 s), 15 scans, M3 Pro, `--device mps`; RIDER ≈ 100 s from file timestamps (partial) |
 | Other AI candidates | — | "Additional candidates to review" (median 3 per RIDER scan). Not adjudicated, so they are not called false positives |
 | Time saved | **Not measured** | The 50 % figure is a business target |

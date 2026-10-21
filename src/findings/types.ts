@@ -40,6 +40,8 @@ export interface TimelineEvent {
     | 'exported';
 }
 
+export type FieldSource = 'auto' | 'researcher';
+
 export interface Finding {
   id: string;
   /** Value in the shared labelmap (1..255). */
@@ -72,6 +74,13 @@ export interface Finding {
   match?: FindingMatch;
   /** Researcher decided this nodule has no earlier counterpart (new, or not visible before). Excludes `match`. */
   noPrior?: { at: number };
+  /**
+   * Who set Type / Lobe: 'auto' = filled from the HU rule / AI lobe map when the finding was accepted;
+   * 'researcher' = chosen (or a suggestion applied) by the researcher. Absent = empty or set before this was tracked.
+   */
+  fieldSource?: { type?: FieldSource; lobe?: FieldSource };
+  /** File name of the PNG the researcher actually downloaded with "Save screenshot" (none = no file saved). */
+  screenshotFile?: string;
   timeline: TimelineEvent[];
   /** Set for AI candidates. */
   ai?: AiProvenance;

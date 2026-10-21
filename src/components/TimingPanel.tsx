@@ -178,6 +178,9 @@ export function TimingDialog({ sessions, currentScan, onAddManual, onRemove, onC
                       </div>
                     )}
                     {r.referenceAssisted && <div className="timing-flag">reference-assisted: not ordinary use</div>}
+                    {r.referenceAssistedExcluded > 0 && (
+                      <div className="hint">{r.referenceAssistedExcluded} reference-assisted session(s) left out</div>
+                    )}
                   </td>
                   <td>{clock(r.manualMs)}</td>
                   <td>{clock(r.assistedMs)}</td>
@@ -220,7 +223,7 @@ export function TimingDialog({ sessions, currentScan, onAddManual, onRemove, onC
                 <th>Scan</th>
                 <th>Task</th>
                 <th>Paused</th>
-                <th>Review / correct / add / document / other</th>
+                <th>Estimated split: review / correct / add / document / other</th>
                 <th>Acc / rej / edited / added / exports</th>
                 <th />
               </tr>
@@ -263,7 +266,7 @@ export function TimingDialog({ sessions, currentScan, onAddManual, onRemove, onC
           </table>
         )}
         <p className="hint">
-          Phases: the active time before each action is credited to that action (accept/reject/match = review; brush, erase,
+          The split is an estimate from action timestamps (task time, pauses and counts are measured directly): the active time before each action is credited to that action (accept/reject/match = review; brush, erase,
           undo, re-segment = correction; a finding you added = adding; type/lobe/notes and export = document). Time after the
           last action until Finish is “other”. Phases add up to the task time. Stored in this browser only.
         </p>

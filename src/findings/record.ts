@@ -1,4 +1,4 @@
-import type { Finding } from './types';
+import type { FieldSource, Finding } from './types';
 import { hasLesionVolume, recordMeasurement, secondsToApproval } from './types';
 import { compare } from './priors';
 
@@ -48,6 +48,8 @@ export const CSV_COLUMNS = [
   'Volume basis',
   'Proposed long diameter (mm)',
   'Proposed volume (mm3)',
+  'Type source',
+  'Lobe source',
   'Finding UID',
   'Series UID',
 ] as const;
@@ -73,6 +75,10 @@ export function screenshotName(scan: ScanInfo, f: Finding): string {
 
 function num(n: number | undefined, digits: number): string {
   return n === undefined || !Number.isFinite(n) ? '' : n.toFixed(digits);
+}
+
+function fieldSourceLabel(s: FieldSource | undefined): string {
+  return s === 'auto' ? 'auto-filled suggestion (not changed)' : s === 'researcher' ? 'researcher' : 'not recorded';
 }
 
 export function volumeBasis(m: Finding['measurement']): string {
@@ -111,7 +117,8 @@ export function toRow(scan: ScanInfo, f: Finding): ResearchRow {
     'Measurement source': source,
     'Measured slice': m ? String(m.sliceIndex + 1) : '',
     'Approved at': f.approved ? new Date(f.approved.at).toISOString() : '',
-    Screenshot: f.status === 'approved' ? screenshotName(scan, f) : '',
+    // Only a PNG the researcher actually downloaded (Save screenshot); never a name for a file that does not exist.
+    Screenshot: f.screenshotFile ?? '',
     'Prior timepoint': prior ? [prior.timepoint, prior.date].filter(Boolean).join(' ') : '',
     'Prior long diameter (mm)': num(prior?.longMm, 1),
     'Change long diameter (mm)': num(delta?.long.deltaMm, 1),
@@ -121,6 +128,8 @@ export function toRow(scan: ScanInfo, f: Finding): ResearchRow {
     'Volume basis': volumeBasis(m),
     'Proposed long diameter (mm)': f.proposal && f.source !== 'manual' ? num(f.proposal.longMm, 1) : '',
     'Proposed volume (mm3)': f.proposal && f.source !== 'manual' && hasLesionVolume(f.proposal) ? num(f.proposal.volumeMm3, 0) : '',
+    'Type source': f.type ? fieldSourceLabel(f.fieldSource?.type) : '',
+    'Lobe source': f.lobe ? fieldSourceLabel(f.fieldSource?.lobe) : '',
     'Finding UID': f.id,
     'Series UID': scan.seriesUid ?? '',
   };

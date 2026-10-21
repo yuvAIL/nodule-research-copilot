@@ -52,11 +52,17 @@ export async function idbGet<T>(key: string): Promise<T | undefined> {
   }
 }
 
-export async function idbSet(key: string, value: unknown): Promise<void> {
+/** Fired on `window` when a write fails, so the app can tell the researcher that work is not being saved. */
+export const STORAGE_FAILED_EVENT = 'nrc-storage-failed';
+
+/** Returns false when the write failed (storage blocked, full or unavailable). The app keeps working either way. */
+export async function idbSet(key: string, value: unknown): Promise<boolean> {
   try {
     await run('readwrite', (s) => s.put(value, key));
-  } catch {
-    // Persistence is a convenience; the app keeps working without it.
+    return true;
+  } catch (error) {
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(STORAGE_FAILED_EVENT, { detail: String(error) }));
+    return false;
   }
 }
 

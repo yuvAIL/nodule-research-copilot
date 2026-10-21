@@ -84,4 +84,17 @@ describe('timed sessions', () => {
     ]);
     expect(rows[0]?.referenceAssisted).toBe(true);
   });
+
+  it('prefers ordinary sessions over reference-assisted ones on the same scan', () => {
+    const scan = { patientId: 'P', studyDate: 'd', timepoint: 't', seriesUid: 'A' };
+    const rows = timeSaved([
+      session({ id: 'r', scan, referenceShown: true, startedAt: s(0), endedAt: s(60) }), // 1 min, outline shown
+      session({ id: 'o', scan, startedAt: s(0), endedAt: s(300) }), // 5 min, ordinary
+      { id: 'm', mode: 'manual-observed', scan, startedAt: 0, pauses: [], referenceShown: false, completed: true, enteredMs: 600_000 },
+    ]);
+    expect(rows[0]?.assistedMs).toBe(300_000);
+    expect(rows[0]?.referenceAssisted).toBe(false);
+    expect(rows[0]?.referenceAssistedExcluded).toBe(1);
+    expect(rows[0]?.assistedSessions).toBe(1);
+  });
 });

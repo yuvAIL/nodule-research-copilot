@@ -13,9 +13,9 @@ import { BRUSH_SIZES_MM } from './components/Toolbar';
 import { buildVolume } from './cornerstone/volumeData';
 import { FindingsStore, type StoreSnapshot } from './findings/store';
 import { hasLesionVolume, type Finding } from './findings/types';
-import { downloadDataUrl, downloadText, screenshotName, toCsv, toRow, type ResearchRow, type ScanInfo } from './findings/record';
+import { downloadDataUrl, downloadText, missingFields, screenshotName, toCsv, toRow, type ResearchRow, type ScanInfo } from './findings/record';
 import { formatDicomDate } from './dicom/headerMapping';
-import { idbGet, idbSet } from './session/idb';
+import { STORAGE_FAILED_EVENT, idbGet, idbSet } from './session/idb';
 import { changeLabel, importSpreadsheet, pairFindings, type PriorRecord } from './findings/priors';
 import { nearestSlice, voxelToWorld, type Vec3 } from './measure/volume';
 import { FileLoader, type ResumeOffer } from './components/FileLoader';
@@ -217,9 +217,21 @@ export default function App() {
     void idbSet(`timepoint:${uid}`, tp);
   };
 
-  const exportCsv = () => {
+  const exportCsv = (allowIncomplete = false) => {
     if (!scanInfo) return;
-    const rows = snap.findings.filter((f) => f.status === 'approved').map((f) => toRow(scanInfo, f));
+    const approvedFindings = snap.findings.filter((f) => f.status === 'approved');
+    // Type and Lobe are the researcher's columns: never export an incomplete row without saying so first.
+    const incomplete = approvedFindings.filter((f) => missingFields(f).length > 0);
+    if (incomplete.length && !allowIncomplete) {
+      setNotice(
+        `${incomplete.map((f) => `${f.name} is missing ${missingFields(f).join(' and ')}`).join('; ')}. Fill it in the card, or export with empty cells.`,
+        { label: 'Export anyway', run: () => exportCsv(true) },
+      );
+      const first = incomplete[0];
+      if (first) store?.select(first.id);
+      return;
+    }
+    const rows = approvedFindings.map((f) => toRow(scanInfo, f));
     const name = `${scanInfo.patientId || 'scan'}_${scanInfo.timepoint}_${new Date().toISOString().slice(0, 10)}.csv`.replace(/\s+/g, '-');
     if (rows.length === 0) {
       setNotice('Nothing to export yet: only accepted findings are exported. Accept at least one finding (A) first.');
@@ -424,6 +436,18 @@ export default function App() {
     }, 250);
     return () => window.clearTimeout(timer);
   }, [reference, store, selectedFinding]);
+
+  // Saving in this browser is what lets findings survive a reload: if it fails, say so (once) instead of failing silently.
+  useEffect(() => {
+    let warned = false;
+    const onFail = () => {
+      if (warned) return;
+      warned = true;
+      setNotice('This browser is not saving your work (storage blocked or full). Export CSV before closing or reloading the page.');
+    };
+    window.addEventListener(STORAGE_FAILED_EVENT, onFail);
+    return () => window.removeEventListener(STORAGE_FAILED_EVENT, onFail);
+  }, [setNotice]);
 
   // ── timed tasks ───────────────────────────────────────────────
   useEffect(() => {
@@ -743,7 +767,8 @@ export default function App() {
       patch.lobe = lh.lobe;
       filled.push(`Lobe ${lh.lobe}`);
     }
-    if (filled.length) store.setFields(id, patch);
+    // Filled from the HU rule / AI lobe map: recorded as 'auto' so the export shows it was not the researcher's choice.
+    if (filled.length) store.setFields(id, patch, 'auto');
     // Accepting approves the measurement only. A suggested earlier match stays a suggestion until the researcher
     // confirms it (M, or the buttons in the card): approval of a measurement is not confirmation of identity.
     const pair = !f.match && !f.noPrior ? pairs.get(id) : undefined;
@@ -762,8 +787,19 @@ export default function App() {
     if (!f || !scanInfo) return;
     withFindingSlice(f, () => {
       const png = viewerRef.current?.capture({ type: 'image/png' });
-      if (png) downloadDataUrl(screenshotName(scanInfo, f), png);
-      else setNotice('Could not capture the image.');
+      if (!png) {
+        setNotice('Could not capture the image. No screenshot was saved.');
+        return;
+      }
+      const file = screenshotName(scanInfo, f);
+      try {
+        downloadDataUrl(file, png);
+      } catch (e) {
+        setNotice(`Could not save the screenshot: ${errorText(e)}.`);
+        return;
+      }
+      store?.setScreenshotFile(id, file);
+      setNotice(`Screenshot downloaded as ${file} (your browser's Downloads folder). Its name goes in the Screenshot column.`);
     });
   };
 
@@ -1577,7 +1613,7 @@ export default function App() {
         }
         scan={scanInfo}
         onTimepoint={setTimepoint}
-        onExport={exportCsv}
+        onExport={() => exportCsv()}
         onScreenshot={saveScreenshot}
         volume={series ? volumeStatus : { kind: 'none' }}
         findings={snap.findings}

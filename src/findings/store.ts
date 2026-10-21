@@ -3,7 +3,7 @@ import { measureLabel } from '../measure/measure';
 import { segmentFromSeed, type SegmentOptions } from '../measure/segment';
 import type { Volume } from '../measure/volume';
 import { idbGet, idbSet } from '../session/idb';
-import type { AiProvenance, Finding, TimelineEvent } from './types';
+import type { AiProvenance, FieldSource, Finding, TimelineEvent } from './types';
 
 /**
  * All findings of one series: their shared labelmap, measurements, review
@@ -537,9 +537,20 @@ export class FindingsStore {
     this.changed();
   }
 
-  setFields(id: string, patch: Partial<Pick<Finding, 'type' | 'lobe' | 'notes'>>): void {
+  setFields(id: string, patch: Partial<Pick<Finding, 'type' | 'lobe' | 'notes'>>, source: FieldSource = 'researcher'): void {
+    const f = this.get(id);
+    if (!f) return;
+    const fieldSource = { ...f.fieldSource };
+    if (patch.type !== undefined) fieldSource.type = patch.type ? source : undefined;
+    if (patch.lobe !== undefined) fieldSource.lobe = patch.lobe ? source : undefined;
     // Typing notes is not a review action; only log type/lobe choices.
-    this.update(id, patch, patch.type !== undefined || patch.lobe !== undefined ? 'fields' : undefined);
+    this.update(id, { ...patch, fieldSource }, patch.type !== undefined || patch.lobe !== undefined ? 'fields' : undefined);
+    this.changed();
+  }
+
+  /** Records the PNG file name once the researcher has actually downloaded it. */
+  setScreenshotFile(id: string, file: string): void {
+    this.update(id, { screenshotFile: file });
     this.changed();
   }
 }

@@ -11,7 +11,7 @@ Research use only; not a medical device.
 ## Rules
 - All DICOM processing stays local in the browser. No uploads, no backend.
 - Never commit imaging data. Datasets live outside the repo or under `data/` (gitignored).
-- Never read or display patient-identifying attributes (name, ID, birth date).
+- Never read or display patient name or birth date. Patient ID is read and exported (it keys the lab's sheet); use de-identified research IDs.
 - Do not implement AI detection yet. Do not use mock images to claim DICOM support.
 - Use built-in Cornerstone3D functionality wherever possible.
 - Keep all `@cornerstonejs/*` packages on the same exact version.

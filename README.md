@@ -57,6 +57,10 @@ unless a real model produced it.
   page; findings and outlines are saved in the browser's IndexedDB on that computer.
 - **Enforced, not just promised:** the site sends a Content-Security-Policy (`connect-src 'self' blob: data:`,
   also present as a `<meta>` tag in the built page). The browser refuses any connection to another server.
+  Precisely: the policy still allows requests to the page's *own* origin. On the public site that origin is a static
+  host (Cloudflare Pages) with no endpoint that accepts data, and the app's code never sends scan data anywhere; but
+  the policy alone is not proof against code that posts to its own origin. For hospital data, the lab can serve the
+  built `dist/` folder from its own machine (any static server), so even the origin is local.
 - **How this was checked** (built-in browser on the deployed site):
   1. A deliberate `fetch('https://example.com', {method: 'POST'})` from the page was blocked
      (“violates the following Content Security Policy directive: connect-src 'self' blob: data:”).
@@ -65,7 +69,14 @@ unless a real model produced it.
   3. Opening 41 DICOM files through **Open files…**, then segmenting, editing, approving and exporting:
      **zero** network requests after the files were chosen.
 - The only data served by the site is the public sample scan (below).
-- Patient name, patient ID and birth date are not displayed. Use de-identified data in line with your IRB rules.
+- Patient name and birth date are never read from the DICOM headers. **Patient ID is read, shown and exported**,
+  because it is the first column of the lab's sheet: use de-identified research IDs, in line with your IRB rules.
+- **Retention:** findings, outlines, timing sessions and the earlier-scan summaries stay in this browser profile
+  (IndexedDB) until the site's data is cleared; *Session summary → Start a new timed run* deletes one scan's findings.
+  If the browser cannot save (storage blocked or full), the app says so: export the CSV before closing.
+- **The AI (local Python):** downloads its model weights once from the internet; processing a scan is local.
+  `scripts/run-ai.sh` turns TotalSegmentator's anonymous usage statistics off before each run. Whether the hospital's
+  IT allows this Python install has not been established.
 
 ## Data sources & attribution
 
@@ -173,10 +184,17 @@ src/
 
 ## Known limitations
 
-- **The AI misses ~1 tumour in 10** (53/59 scans found; Dice 0.76 vs expert) and some scans get many small
+- **The AI misses ~1 tumour in 10** (53/59 scans with any overlap; **43/59 with Dice ≥ 0.5**; median Dice 0.76 over
+  the 53, misses excluded) and some scans get many small
   unconfirmed candidates — every candidate is reviewed by the researcher, and missed ones are added with one click.
 - **The AI does not find ground-glass nodules** (LIDC-IDRI: 0 of 5; part-solid 1 of 3) and outlines small solid
   nodules too small (every found nodule −26 % or worse in volume). See `docs/CHALLENGING_NODULE_EVALUATION.md`.
+  The model was trained partly on LIDC-IDRI (subject list not public), so those LIDC detection rates may be
+  optimistic; the ground-glass miss stands regardless.
+- **When the AI or the click fails, the researcher does it by hand:** search the scan as today (the AI list is not a
+  complete list, and hazy nodules are not on it), then outline with the brush (**B**, 3D on) slice by slice, or click
+  (**S**) with a lower edge threshold for part-solid or hazy lesions. Check *Extent* and the volume line in the card: an
+  outline on one slice gives diameters only, no volume.
 - **Click segmentation is classical, not AI**, and is the fallback: about one click in three fails (Dice < 0.2) on the
   RIDER cohort, mostly on lesions touching the chest wall. It is tuned for solid nodules. On large masses touching the hilum
   the outline can follow hilar structures on some slices and needs manual erasing. Ground-glass nodules need a

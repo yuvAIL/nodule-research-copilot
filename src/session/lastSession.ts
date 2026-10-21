@@ -27,7 +27,7 @@ export function loadLastSession(): Promise<LastSession | undefined> {
   return idbGet<LastSession>(KEY);
 }
 
-export function saveLastSession(session: LastSession): Promise<void> {
+export function saveLastSession(session: LastSession): Promise<boolean> {
   return idbSet(KEY, session);
 }
 

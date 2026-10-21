@@ -176,8 +176,10 @@ export interface TimeSavedRow {
   savedPct: number | undefined;
   manualSessions: number;
   assistedSessions: number;
-  /** At least one assisted session showed the expert reference: not ordinary use. */
+  /** The assisted time comes from sessions that showed the expert reference: not ordinary use. */
   referenceAssisted: boolean;
+  /** Reference-assisted sessions left out because ordinary sessions exist for this scan. */
+  referenceAssistedExcluded: number;
 }
 
 function mean(xs: number[]): number {
@@ -200,8 +202,12 @@ export function timeSaved(sessions: TimedSession[]): TimeSavedRow[] {
   const rows: TimeSavedRow[] = [];
   for (const [key, list] of byScan) {
     const manual = list.filter((s) => s.mode === 'manual-observed');
-    const assisted = list.filter((s) => s.mode === 'assisted');
-    if (!manual.length || !assisted.length) continue;
+    const allAssisted = list.filter((s) => s.mode === 'assisted');
+    if (!manual.length || !allAssisted.length) continue;
+    // Ordinary use = expert outline never shown. Reference-assisted sessions count only when there is nothing else,
+    // and then the row is flagged as such.
+    const ordinary = allAssisted.filter((s) => !s.referenceShown);
+    const assisted = ordinary.length ? ordinary : allAssisted;
     const manualMs = mean(manual.map((s) => taskMs(s)));
     const assistedMs = mean(assisted.map((s) => taskMs(s)));
     const savedMs = manualMs - assistedMs;
@@ -215,11 +221,16 @@ export function timeSaved(sessions: TimedSession[]): TimeSavedRow[] {
       manualSessions: manual.length,
       assistedSessions: assisted.length,
       referenceAssisted: assisted.some((s) => s.referenceShown),
+      referenceAssistedExcluded: allAssisted.length - assisted.length,
     });
   }
   return rows;
 }
 
+/**
+ * Phase columns are estimates: the app does not observe what the researcher is doing between actions, it credits each
+ * gap to the action that ends it. Task time, pauses and counts are direct measurements.
+ */
 export const TIMING_COLUMNS = [
   'Session',
   'Mode',
@@ -231,11 +242,11 @@ export const TIMING_COLUMNS = [
   'Finished',
   'Task minutes',
   'Paused minutes (excluded)',
-  'Review minutes',
-  'Correction minutes',
-  'Adding minutes',
-  'Documentation/export minutes',
-  'Other minutes',
+  'Review minutes (est.)',
+  'Correction minutes (est.)',
+  'Adding minutes (est.)',
+  'Documentation/export minutes (est.)',
+  'Other minutes (est.)',
   'AI candidates',
   'Accepted',
   'Rejected',
@@ -263,11 +274,11 @@ export function timingRow(s: TimedSession): Record<(typeof TIMING_COLUMNS)[numbe
     Finished: assisted ? iso(s.endedAt) : '',
     'Task minutes': min(taskMs(s)),
     'Paused minutes (excluded)': assisted ? min(pausedMs(s, s.endedAt)) : '',
-    'Review minutes': min(s.phases?.review),
-    'Correction minutes': min(s.phases?.correction),
-    'Adding minutes': min(s.phases?.adding),
-    'Documentation/export minutes': min(s.phases?.documentation),
-    'Other minutes': min(s.phases?.other),
+    'Review minutes (est.)': min(s.phases?.review),
+    'Correction minutes (est.)': min(s.phases?.correction),
+    'Adding minutes (est.)': min(s.phases?.adding),
+    'Documentation/export minutes (est.)': min(s.phases?.documentation),
+    'Other minutes (est.)': min(s.phases?.other),
     'AI candidates': s.counts ? String(s.counts.aiCandidates) : '',
     Accepted: s.counts ? String(s.counts.accepted) : '',
     Rejected: s.counts ? String(s.counts.rejected) : '',

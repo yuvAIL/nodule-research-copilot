@@ -51,7 +51,17 @@ describe('research record', () => {
     expect(row.Minutes).toBe('1.5');
     expect(row['Measurement source']).toBe('semi-auto, edited');
     expect(row['Measured slice']).toBe('101');
-    expect(row.Screenshot).toBe('RIDER-1129164940_Baseline_N1.png');
+    // No file was downloaded: the record must not name one.
+    expect(row.Screenshot).toBe('');
+    expect(toRow(scan, finding({ screenshotFile: 'RIDER-1129164940_Baseline_N1.png' })).Screenshot).toBe('RIDER-1129164940_Baseline_N1.png');
+  });
+
+  it('says whether Type and Lobe were auto-filled or chosen by the researcher', () => {
+    const auto = toRow(scan, finding({ fieldSource: { type: 'auto', lobe: 'researcher' } }));
+    expect(auto['Type source']).toBe('auto-filled suggestion (not changed)');
+    expect(auto['Lobe source']).toBe('researcher');
+    const empty = toRow(scan, finding({ type: '', fieldSource: { type: 'auto' } }));
+    expect(empty['Type source']).toBe('');
   });
 
   it('writes Excel-safe CSV that round-trips through the parser', () => {

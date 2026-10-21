@@ -55,6 +55,10 @@ overlaps the expert MANUAL outline; Dice/axes are for the candidate that overlap
 **unconfirmed** (the dataset labels one primary tumour per patient, so they may be false positives *or* real,
 unlabelled nodules).
 
+*Training data:* the model was "trained on 1353 subjects, partly from LIDC-IDRI" ([TotalSegmentator README](https://github.com/wasserth/TotalSegmentator)).
+RIDER is not named, but the subject list is not public, so independence from RIDER is likely but not proven; overlap
+with LIDC-IDRI (used in `CHALLENGING_NODULE_EVALUATION.md`) cannot be excluded.
+
 | AI vs expert, all 59 scans / 31 patients | All | Nodules ≤ 30 mm (18) | Masses > 30 mm (41) |
 |---|---|---|---|
 | **Tumour found (hit)** | **53 / 59 (90 %)** | 15 / 18 | 38 / 41 |

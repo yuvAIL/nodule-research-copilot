@@ -65,6 +65,12 @@ where the time goes, and they are what the timed session must measure.
 nodule outlines by up to 4 thoracic radiologists. Each reader also rates **texture** from 1 (non-solid, ground-glass)
 to 5 (solid). That gives a documented basis for "ground-glass", instead of us judging it from the image.
 
+> **Possible overlap with the model's training data (found 21 Oct 2026).** The `lung_nodules` model was "trained on
+> 1353 subjects, partly from LIDC-IDRI" ([TotalSegmentator README](https://github.com/wasserth/TotalSegmentator)). The subject list is not published, so we cannot tell whether any
+> of our 15 LIDC scans were in it. If some were, the LIDC detection rates below are **optimistic** (the model may have
+> seen these nodules). It does not soften the ground-glass result: 0 of 5 found even if they were in training. RIDER is
+> not named as a training source, but the full training list is not public, so its independence is not proven either.
+
 ### Selection rules (fixed before any AI result, in `scripts/lidc/prepare_lidc.py`)
 
 - Annotations from the LIDC radiologist XML, as packaged in the pylidc database. Scans with slice thickness ≤ 2.5 mm,
@@ -174,5 +180,7 @@ RETEST (missed), RIDER-2799584460 RETEST (success).
   nodules). LIDC scans are older (1.25–2.5 mm slices), and 14 of the 15 use the STANDARD kernel.
 - Type comes from reader texture ratings (median), not from us. Sizes are the consensus outline's long axis.
 - "Found" is lenient (≥ 1 voxel), so the Dice ≥ 0.5 column is reported next to it.
+- The model was trained partly on LIDC-IDRI (subject list not public): the LIDC detection rates may be optimistic;
+  an independent test set would be needed for a fair rate (see §3).
 - This is the AI's performance alone. With the researcher in the loop, misses are added by hand. Timing that is the
   open question.

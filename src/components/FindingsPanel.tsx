@@ -518,7 +518,7 @@ export function FindingsPanel(props: Props) {
           )}
           <div className="fields">
             <label className={selected.type ? '' : 'missing'}>
-              Type
+              Type{selected.type && selected.fieldSource?.type === 'auto' && <span className="auto-tag" title="Filled from the HU rule of thumb when you accepted. Change it if it is wrong; the export records it as auto-filled until you do."> auto-filled</span>}
               <select
                 value={selected.type}
                 onChange={(e) => props.onFields(selected.id, { type: e.target.value as NoduleType })}
@@ -531,7 +531,7 @@ export function FindingsPanel(props: Props) {
               </select>
             </label>
             <label className={selected.lobe ? '' : 'missing'}>
-              Lobe
+              Lobe{selected.lobe && selected.fieldSource?.lobe === 'auto' && <span className="auto-tag" title="Filled from the AI lobe map when you accepted. Change it if it is wrong; the export records it as auto-filled until you do."> auto-filled</span>}
               <select value={selected.lobe} onChange={(e) => props.onFields(selected.id, { lobe: e.target.value as Lobe })}>
                 {LOBES.map((l) => (
                   <option key={l} value={l}>

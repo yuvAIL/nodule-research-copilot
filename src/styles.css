@@ -1939,3 +1939,9 @@ button.danger {
 .match-row .chip {
   white-space: normal;
 }
+
+.auto-tag {
+  font-size: 11px;
+  color: var(--warn);
+  font-weight: 400;
+}

@@ -81,7 +81,8 @@ detail lives here. Numbers trace to `EVIDENCE_REGISTER.md` (E-numbers). Say "we 
 - "This is the slide you asked for." LIDC-IDRI: 15 public scans selected by fixed rules, 35 nodules each outlined by
   at least 3 of 4 radiologists, with their own texture ratings (E16).
 - Solid: 26 of 27 found, 15 of 16 at ≤ 10 mm. But every outline the AI produced was too small (−26 % to −91 % in
-  volume), so he redraws before using a volume.
+  volume), so he redraws before using a volume. Caveat if asked: the model was trained partly on LIDC-IDRI, so these
+  detection rates may be optimistic; an independent test set is needed for a fair rate.
 - Part-solid 1 of 3. **Ground-glass 0 of 5.** Show the 15.8 mm ground-glass nodule with nothing on it (E21). For hazy
   nodules the AI does not help today; he keeps searching for them himself.
 - Images 2 and 3 are from RIDER: a 13.5 mm tumour outlined at 8.0 mm (and missed entirely on a repeat scan 15
