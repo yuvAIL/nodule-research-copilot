@@ -39,7 +39,7 @@
 
 <!-- ============================== 1 ============================== -->
 <section class="slide">
-  <div class="kicker"><span class="n">01 / 07</span> The research workflow problem</div>
+  <div class="kicker"><span class="n">01 / 08</span> The research workflow problem</div>
   <h1>From manual CT review to AI-assisted research</h1>
   <p class="sub">Daniel's current baseline scan, step by step: his own time estimates, not measured by us.</p>
   <div class="body" style="flex-direction:column; gap:22px; padding-bottom:34px">
@@ -66,9 +66,55 @@
   <div class="foot"><span>Source: discovery call with Daniel Reyes (simulated research fellow) · self-reported, not measured</span><span>Nodule Research Copilot · research prototype, not for clinical use</span></div>
 </section>
 
+<!-- ============================== 2 (workflow) ============================== -->
+<section class="slide">
+  <div class="kicker"><span class="n">02 / 08</span> How you will work with it</div>
+  <h1>From the hospital scan to your sheet</h1>
+  <p class="sub">Five steps. Everything stays on the lab computer: no server, no upload, no IT project.</p>
+  <style>
+    .flow { display:grid; grid-template-columns: repeat(5, 1fr); gap: 0; align-items: stretch; }
+    .fstep { position:relative; background: var(--panel); border:1px solid var(--line); border-radius:18px; padding: 28px 22px 24px; min-height: 430px; margin-right: 34px; display:flex; flex-direction:column; gap:10px; }
+    .fstep:last-child { margin-right:0; }
+    .fstep:not(:last-child)::after { content:"→"; position:absolute; right:-31px; top:50%; transform:translateY(-50%); font: 700 30px/1 var(--sans); color: var(--cyan); }
+    .fstep .no { font: 700 18px/1 var(--mono); color: var(--cyan); }
+    .fstep .ttl { font-size: 27px; font-weight: 700; line-height:1.2; }
+    .fstep .where { font: 600 14px/1.2 var(--mono); letter-spacing:.06em; text-transform:uppercase; color: var(--dim); }
+    .fstep .txt { font-size: 20px; color: var(--muted); line-height: 1.42; }
+    .fstep .meta { margin-top:auto; padding-top:10px; border-top:1px solid var(--line); font: 600 16px/1.35 var(--mono); color: var(--text); }
+    .fstep.you { border-color: rgba(92,200,242,.55); background: linear-gradient(180deg, rgba(92,200,242,.08), var(--panel)); }
+    .zone { display:flex; justify-content:space-between; font: 600 15px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; color: var(--dim); margin: 0 0 12px; }
+  </style>
+  <div class="body" style="flex-direction:column; gap:26px">
+    <div>
+      <div class="flow">
+        <div class="fstep"><span class="no">1</span><span class="where">Hospital PACS</span><span class="ttl">Export the scan</span><span class="txt">You export the CT series from the hospital system into a folder on the lab computer, as for any research scan. De-identified, per your IRB rules.</span><span class="meta">you · once per scan</span></div>
+        <div class="fstep"><span class="no">2</span><span class="where">Lab computer</span><span class="ttl">AI runs on it</span><span class="txt">One command for a whole folder. The result is saved next to each scan. It can run overnight while you're away.</span><span class="meta">unattended · ~97 s per scan (measured)</span></div>
+        <div class="fstep"><span class="no">3</span><span class="where">Browser · Chrome</span><span class="ttl">Open the folder</span><span class="txt">Every scan of the patient appears on a timeline, with AI candidates already loaded. The files are read on your computer and are never uploaded.</span><span class="meta">~12 s for 2 scans with AI (measured)</span></div>
+        <div class="fstep you"><span class="no">4</span><span class="where">Browser · your review</span><span class="ttl">Review, fix, approve</span><span class="txt">Accept or reject each candidate, fix edges with the brush, add anything missed. Follow-ups are paired with the earlier scan automatically.</span><span class="meta">you · the only step that needs your judgement</span></div>
+        <div class="fstep"><span class="no">5</span><span class="where">Your research sheet</span><span class="ttl">The sheet fills itself</span><span class="txt">Every approved nodule is written to your CSV / Excel sheet, in your columns, with where each number came from.</span><span class="meta">automatic · no re-typing</span></div>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:22px; align-items:start">
+      <div class="card">
+        <h3>What stays where</h3>
+        <div class="note" style="font-size:19px">Scans, AI results and your measurements stay on the lab computer. The browser itself <b>blocks every connection to other sites</b> (checked on the live site). Nothing is written back into the hospital system: this is a research tool, and its output is your research sheet.</div>
+      </div>
+      <div class="card">
+        <h3>Why no IT approval</h3>
+        <div class="note" style="font-size:19px">There is no server to install and no connection to PACS. The tool is a web page plus one local AI command. Last year's vendor stalled on exactly that approval.</div>
+      </div>
+      <div class="card" style="border-color: rgba(251,191,36,.45)">
+        <h3 style="color:var(--warn)">Still manual today → next</h3>
+        <div class="note" style="font-size:19px">Steps 1 and 2 are manual. Next: a "watched folder" that runs the AI on every new export automatically, and, only if the hospital wants it, saving approved outlines back to PACS (standard DICOM SEG). <b>To confirm with you:</b> how do you get research scans out of PACS today?</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>AI time: LIDC-IDRI run, 15 scans, MacBook M3 Pro · privacy: Content-Security-Policy verified on the live site (README, "Data &amp; privacy")</span><span>Evidence register E6, E22</span></div>
+</section>
+
 <!-- ============================== 2 ============================== -->
 <section class="slide">
-  <div class="kicker"><span class="n">02 / 07</span> AI-assisted baseline review</div>
+  <div class="kicker"><span class="n">03 / 08</span> AI-assisted baseline review</div>
   <h1>Let AI propose the findings</h1>
   <div class="body">
     <div class="shot" style="flex:0 0 1110px; height:780px"><img src="img/s2-app.jpg" alt="Baseline scan with AI candidates in the worklist"><div class="cap">RIDER-1129164940 · 2006-09-05 · real app, real model output</div></div>
@@ -94,7 +140,7 @@
 
 <!-- ============================== 3 ============================== -->
 <section class="slide">
-  <div class="kicker"><span class="n">03 / 07</span> Researcher control &amp; correction</div>
+  <div class="kicker"><span class="n">04 / 08</span> Researcher control &amp; correction</div>
   <h1>Review. Correct. Approve.</h1>
   <div class="body">
     <div class="col" style="flex:0 0 1130px">
@@ -129,7 +175,7 @@
 
 <!-- ============================== 4 ============================== -->
 <section class="slide">
-  <div class="kicker"><span class="n">04 / 07</span> Longitudinal follow-up</div>
+  <div class="kicker"><span class="n">05 / 08</span> Longitudinal follow-up</div>
   <h1>Understand what changed</h1>
   <div class="body">
     <div class="col" style="flex:0 0 1000px">
@@ -172,7 +218,7 @@
 
 <!-- ============================== 6 ============================== -->
 <section class="slide">
-  <div class="kicker"><span class="n">06 / 07</span> Accuracy &amp; measurable impact</div>
+  <div class="kicker"><span class="n">07 / 08</span> Accuracy &amp; measurable impact</div>
   <h1>Does it actually save time?</h1>
   <p class="sub">What we measured, and what we have not measured yet. The 50 % target is shown as a goal, not as a result.</p>
   <div class="body" style="flex-direction:column; gap:24px">
@@ -208,12 +254,12 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>Ground-glass: 0 of 5 found on LIDC (slide 5) · no researcher has been timed yet</span><span>Evidence register E2–E7, E16, E17</span></div>
+  <div class="foot"><span>Ground-glass: 0 of 5 found on LIDC (slide 6) · no researcher has been timed yet</span><span>Evidence register E2–E7, E16, E17</span></div>
 </section>
 
 <!-- ============================== 7 ============================== -->
 <section class="slide">
-  <div class="kicker"><span class="n">07 / 07</span> Daniel's feedback &amp; next decision</div>
+  <div class="kicker"><span class="n">08 / 08</span> Daniel's feedback &amp; next decision</div>
   <h1>What would make this trustworthy enough to use?</h1>
   <div class="body">
     <div class="col" style="flex:0 0 820px">
@@ -225,9 +271,9 @@
       <div class="card">
         <h3>Where we stand on your three points</h3>
         <div class="num-list" style="grid-template-columns: 220px 1fr; font-size:20px">
-          <span class="k">Review + correction</span><span>built; correction re-measures and is tracked (slide 3)</span>
-          <span class="k">Full-process timing</span><span>instrumented; <b>no timed session yet</b> (slide 6)</span>
-          <span class="k">Small / hazy nodules</span><span id="s7-difficult">tested on LIDC + RIDER: solid found but outlined too small; <b>ground-glass 0 of 5</b> (slide 5)</span>
+          <span class="k">Review + correction</span><span>built; correction re-measures and is tracked (slide 4)</span>
+          <span class="k">Full-process timing</span><span>instrumented; <b>no timed session yet</b> (slide 7)</span>
+          <span class="k">Small / hazy nodules</span><span id="s7-difficult">tested on LIDC + RIDER: solid found but outlined too small; <b>ground-glass 0 of 5</b> (slide 6)</span>
         </div>
       </div>
     </div>
