@@ -1,0 +1,30 @@
+<section class="slide">
+  <style>
+    .nx { flex: 1; display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 70px; align-items: center; min-height: 0; padding-bottom: 20px; }
+    .nx blockquote { font-size: 30px; line-height: 1.45; }
+    .nx .who { margin-top: 18px; font-size: 19px; color: var(--dim); }
+    .qs { display: flex; flex-direction: column; gap: 30px; }
+    .q { display: grid; grid-template-columns: 58px 1fr; gap: 20px; align-items: start; font-size: 30px; line-height: 1.3; }
+    .q .i { width: 58px; height: 58px; border-radius: 14px; display: grid; place-items: center; font: 700 26px/1 var(--mono); background: rgba(92,200,242,.1); border: 1px solid rgba(92,200,242,.4); color: var(--cyan); }
+    .cta { margin-top: 44px; padding: 28px 32px; border-radius: 20px; border: 1px solid rgba(92,200,242,.5); background: linear-gradient(160deg, rgba(92,200,242,.10), var(--panel) 70%); }
+    .cta .t { font-size: 30px; font-weight: 700; line-height: 1.3; }
+    .cta .s { font-size: 21px; color: var(--muted); margin-top: 8px; }
+  </style>
+  <div class="kicker"><span class="n">{{N}} / {{T}}</span> Your feedback</div>
+  <h1>What would make this worth using?</h1>
+  <div class="nx">
+    <div>
+      <blockquote>"… AI-assisted finding followed by my manual review and correction is exactly what I need … we'll need to time the full process … and see how it handles those smaller, hazier nodules."</blockquote>
+      <div class="who">Dr. Daniel Reyes · written feedback</div>
+    </div>
+    <div>
+      <div class="qs">
+        <div class="q"><div class="i">1</div><div>Does this review-and-correct flow fit how you work through a scan?</div></div>
+        <div class="q"><div class="i">2</div><div>Given the ground-glass result, would you still use it for solid nodules?</div></div>
+        <div class="q"><div class="i">3</div><div>How do you get research scans out of the hospital system today?</div></div>
+      </div>
+      <div class="cta"><div class="t">Next step: a 20-minute timed session on 10 public scans, manual vs with the tool.</div><div class="s">That gives the real time-saved number, measured on your work.</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>Proposed protocol: docs/RESEARCHER_TEST_PROTOCOL.md</span><span>Nodule Research Copilot · research prototype, not for clinical use</span></div>
+</section>

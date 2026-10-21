@@ -1,0 +1,35 @@
+<section class="slide">
+  <style>
+    .wf { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 56px; padding-bottom: 30px; }
+    .flow { display: grid; grid-template-columns: repeat(5, 1fr); }
+    .fstep { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 30px 26px 26px; margin-right: 40px; display: flex; flex-direction: column; gap: 14px; min-height: 360px; }
+    .fstep:last-child { margin-right: 0; }
+    .fstep:not(:last-child)::after { content: "→"; position: absolute; right: -35px; top: 50%; transform: translateY(-50%); font: 700 32px/1 var(--sans); color: var(--cyan); }
+    .fstep .no { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; font: 700 22px/1 var(--mono); background: var(--panel2); border: 1px solid var(--line); color: var(--cyan); }
+    .fstep .ttl { font-size: 30px; font-weight: 700; line-height: 1.15; }
+    .fstep .txt { font-size: 21px; color: var(--muted); line-height: 1.4; }
+    .fstep .who { margin-top: auto; font: 600 16px/1.3 var(--mono); letter-spacing: .04em; color: var(--dim); text-transform: uppercase; }
+    .fstep.you { border-color: rgba(92,200,242,.6); background: linear-gradient(180deg, rgba(92,200,242,.10), var(--panel) 70%); }
+    .fstep.you .who { color: var(--cyan); }
+    .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+    .facts div { font-size: 24px; line-height: 1.4; color: var(--muted); padding-left: 22px; border-left: 3px solid var(--line); }
+    .facts b { color: var(--text); display: block; font-size: 26px; margin-bottom: 4px; }
+  </style>
+  <div class="kicker"><span class="n">{{N}} / {{T}}</span> How you will work with it</div>
+  <h1>From the hospital scan to your sheet</h1>
+  <div class="wf">
+    <div class="flow">
+      <div class="fstep"><span class="no">1</span><span class="ttl">Export the scan</span><span class="txt">From the hospital system to a folder on the lab computer, as for any research scan.</span><span class="who">You · once per scan</span></div>
+      <div class="fstep"><span class="no">2</span><span class="ttl">AI runs</span><span class="txt">One command for the whole folder. Can run overnight.</span><span class="who">Machine · ~97 s per scan</span></div>
+      <div class="fstep"><span class="no">3</span><span class="ttl">Open in Chrome</span><span class="txt">All scans of the patient, AI candidates already loaded.</span><span class="who">Machine · seconds</span></div>
+      <div class="fstep you"><span class="no">4</span><span class="ttl">Review &amp; approve</span><span class="txt">Accept or reject, fix edges, add what was missed.</span><span class="who">You · your judgement</span></div>
+      <div class="fstep"><span class="no">5</span><span class="ttl">Sheet fills itself</span><span class="txt">Approved nodules go into your columns. No re-typing.</span><span class="who">Automatic</span></div>
+    </div>
+    <div class="facts">
+      <div><b>Nothing leaves the computer</b>The browser blocks connections to other sites.</div>
+      <div><b>No IT project</b>No server, no connection to the hospital system.</div>
+      <div><b>Next (not built yet)</b>The AI runs by itself on every new export.</div>
+    </div>
+  </div>
+  <div class="foot"><span>AI time measured on 15 LIDC-IDRI scans (MacBook M3 Pro) · privacy checked on the live site</span><span>Evidence E6, E22</span></div>
+</section>

@@ -1,0 +1,37 @@
+<section class="slide">
+  <style>
+    .rc { flex: 1; display: flex; flex-direction: column; gap: 34px; justify-content: center; min-height: 0; }
+    .rc .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    .rc .shot { height: 480px; }
+    .rc .shot img { object-position: 50% 45%; }
+    .rc .low { display: grid; grid-template-columns: 1.15fr 1fr; gap: 48px; align-items: start; }
+    .vals { display: grid; grid-template-columns: auto auto auto; gap: 14px 40px; align-items: baseline; font-size: 24px; }
+    .vals .h { font: 600 15px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+    .vals .m { font: 600 30px/1 var(--mono); }
+    .vals .tag { justify-self: start; }
+    .rc .shot .cap { top: 14px; bottom: auto; }
+    .keys { display: flex; gap: 26px; flex-wrap: wrap; font-size: 22px; color: var(--muted); margin-bottom: 18px; }
+    .keys .kbd { font-size: 19px; margin-right: 8px; }
+  </style>
+  <div class="kicker"><span class="n">{{N}} / {{T}}</span> Your review</div>
+  <h1>Review. Correct. Approve.</h1>
+  <div class="rc">
+    <div class="pair">
+      <div class="shot"><img src="img/s3-before-crop.jpg"><div class="cap"><span style="color:var(--cyan)">AI outline</span> · <span style="color:var(--expert)">expert outline (dotted)</span></div></div>
+      <div class="shot"><img src="img/s3-after-crop.jpg"><div class="cap">After brush strokes on 5 slices · marked "edited"</div></div>
+    </div>
+    <div class="low">
+      <div class="vals">
+        <span class="h">Tumour N1</span><span class="h">Volume</span><span class="h">Long axis</span>
+        <span class="tag ai">AI proposal</span><span class="m">43.8 mL</span><span class="m">55.4 mm</span>
+        <span class="tag">After correction</span><span class="m">46.8 mL</span><span class="m">65.1 mm</span>
+        <span class="tag ex">Expert</span><span class="m">55.0 mL</span><span class="m">59.8 mm</span>
+      </div>
+      <div>
+        <div class="keys"><span><span class="kbd">A</span>accept</span><span><span class="kbd">R</span>reject</span><span><span class="kbd">B</span>brush</span><span><span class="kbd">E</span>erase</span><span><span class="kbd">S</span>add missed</span></div>
+        <div class="note" style="font-size:22px">Every stroke re-measures the nodule, so mistakes show at once: here one stroke <b>overshot the long axis</b> and is one undo away. Strokes in this example were made by a test script, not a person.</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>RIDER-1129164940, follow-up scan · expert = RIDER-LungCT-Seg manual outline · values read from the app</span><span>Evidence E8, E11</span></div>
+</section>

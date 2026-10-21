@@ -1,0 +1,29 @@
+<section class="slide">
+  <style>
+    .fu { flex: 1; display: flex; flex-direction: column; gap: 36px; justify-content: center; min-height: 0; }
+    .fu .pair { display: grid; grid-template-columns: 1fr 70px 1fr; align-items: center; }
+    .fu .shot { height: 470px; }
+    .fu .shot .cap { top: 14px; bottom: auto; }
+    .fu .arr { text-align: center; font: 700 44px/1 var(--sans); color: var(--cyan); }
+    .chg { display: grid; grid-template-columns: repeat(3, 1fr) 1.3fr; gap: 40px; align-items: start; }
+    .chg .k { font: 600 15px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+    .chg .v { font: 700 58px/1.1 var(--sans); letter-spacing: -.02em; margin: 10px 0 6px; }
+    .chg .d { font: 500 19px/1.3 var(--mono); color: var(--muted); }
+  </style>
+  <div class="kicker"><span class="n">{{N}} / {{T}}</span> Follow-up</div>
+  <h1>Every nodule is matched to its earlier self</h1>
+  <div class="fu">
+    <div class="pair">
+      <div class="shot"><img src="img/s4-baseline-lesion-c.jpg"><div class="cap">Baseline · 5 Sep 2006</div></div>
+      <div class="arr">→</div>
+      <div class="shot"><img src="img/s4-followup-lesion-c.jpg"><div class="cap">Follow-up · 20 Sep 2006 · <span style="color:var(--warn)">pair suggested, you confirm</span></div></div>
+    </div>
+    <div class="chg">
+      <div><div class="k">Long axis</div><div class="v">−15.5 %</div><div class="d">65.5 → 55.4 mm</div></div>
+      <div><div class="k">Short axis</div><div class="v">−17.6 %</div><div class="d">49.3 → 40.6 mm</div></div>
+      <div><div class="k">Volume</div><div class="v">−45.1 %</div><div class="d">79.7 → 43.8 mL</div></div>
+      <div class="note" style="font-size:21px; padding-top:4px">No more re-finding and side-by-side arithmetic. <b>Read with care:</b> the two scans were reconstructed differently, and same-day repeat scans already differ by 10–17 % in volume. Whether it truly shrank is your call.</div>
+    </div>
+  </div>
+  <div class="foot"><span>RIDER-1129164940 · AI outline on both scans · STANDARD vs LUNG reconstruction kernel</span><span>Evidence E9–E11</span></div>
+</section>

@@ -1,0 +1,30 @@
+<section class="slide">
+  <style>
+    .hd { flex: 1; display: flex; flex-direction: column; gap: 34px; justify-content: center; min-height: 0; }
+    .hd .imgs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+    .hd .shot { height: 400px; }
+    .hd .shot .cap { top: 14px; bottom: auto; font-size: 17px; }
+    .hd .lbl { font-size: 19px; color: var(--muted); margin-top: 10px; line-height: 1.35; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr) 1.25fr; gap: 36px; align-items: start; }
+    .stat .k { font: 600 15px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+    .stat .v { font: 700 72px/1.05 var(--sans); letter-spacing: -.02em; margin: 8px 0 4px; }
+    .stat .v small { font-size: 34px; color: var(--muted); font-weight: 600; }
+    .stat .d { font-size: 19px; color: var(--muted); line-height: 1.35; }
+  </style>
+  <div class="kicker"><span class="n">{{N}} / {{T}}</span> The cases you asked about</div>
+  <h1>Small solid: found. Ground-glass: not yet.</h1>
+  <div class="hd">
+    <div class="imgs">
+      <div><div class="shot"><img src="img/s5-LIDC-0075.jpg"><div class="cap" style="color:var(--bad)">✕ Ground-glass 15.8 mm · missed</div></div><div class="lbl">LIDC · 4 radiologists outlined it (magenta). The AI marked nothing.</div></div>
+      <div><div class="shot"><img src="img/s5-1801720707-TEST.jpg"><div class="cap" style="color:var(--warn)">△ Found, but outlined too small</div></div><div class="lbl">RIDER · 13.5 mm tumour, AI outline 8.0 mm. Redraw the edge.</div></div>
+      <div><div class="shot"><img src="img/s5-2799584460-RETEST.jpg"><div class="cap" style="color:var(--ok)">✓ 12.9 mm · found, close match</div></div><div class="lbl">RIDER · AI outline (violet) on the expert's (magenta).</div></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="k">Ground-glass</div><div class="v" style="color:var(--bad)">0<small> / 5</small></div><div class="d">found</div></div>
+      <div class="stat"><div class="k">Part-solid</div><div class="v" style="color:var(--warn)">1<small> / 3</small></div><div class="d">found</div></div>
+      <div class="stat"><div class="k">Solid</div><div class="v" style="color:var(--ok)">26<small> / 27</small></div><div class="d">found, but every outline too small</div></div>
+      <div class="note" style="font-size:21px; padding-top:6px"><b>What it means for you:</b> keep searching for hazy nodules yourself. For solid ones, fix the edge before using a volume.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Numbers: LIDC-IDRI, 15 public scans, 35 nodules outlined by ≥ 3 of 4 radiologists, type = their texture rating</span><span>Evidence E12–E16, E21</span></div>
+</section>

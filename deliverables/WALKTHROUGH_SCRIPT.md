@@ -1,105 +1,108 @@
-# Walkthrough script: 8 slides, 15–20 minutes with discussion
+# Walkthrough script: 9 slides, about 15 minutes plus discussion
 
-*For Daniel (primary user), Naomi (decision-maker) and the Base44 reviewers. Each slide answers one question.
-Numbers trace back to `EVIDENCE_REGISTER.md` (E-numbers). Speak in "we measured / Daniel reported / not measured
-yet". Never say "validated", "equivalent to radiologists", or "saves 50 %".*
+*For Daniel (primary user), Naomi (decision-maker) and the Base44 reviewers. The slides carry one message each; the
+detail lives here. Numbers trace to `EVIDENCE_REGISTER.md` (E-numbers). Say "we measured", "Daniel estimated" or
+"not measured yet". Never say "validated", "equivalent to radiologists" or "saves 50 %".*
 
-| # | Slide | Minutes | Question it answers |
+| # | Slide | Min | The one message |
 |---|---|---|---|
-| 1 | From manual CT review to AI-assisted research | 1.5 | Where does Daniel's time go today? |
-| 2 | From the hospital scan to your sheet | 1.5 | How will Daniel actually work with it? |
-| 3 | Let AI propose the findings | 2 | What does the AI actually do? |
-| 4 | Review. Correct. Approve. | 2.5 | Who is in control of the numbers? |
-| 5 | Understand what changed | 2 | What does follow-up look like? |
-| 6 | Testing where researchers lose the most time | 3 | How does it do on small and hazy nodules? |
-| 7 | Does it actually save time? | 2 | What is measured, and what is not yet? |
-| 8 | What would make this trustworthy enough to use? | 1.5 + 5 discussion | What does Daniel need before he uses it? |
+| 1 | Nodule Research Copilot | 0.5 | Who I am and what this is |
+| 2 | Halve the time per scan, without losing quality | 1.5 | The goal and how we judge success |
+| 3 | From the hospital scan to your sheet | 2 | How Daniel will actually work with it |
+| 4 | The AI does the first pass | 1.5 | What the AI does, and that nothing is final |
+| 5 | Review. Correct. Approve. | 2 | Daniel controls every number |
+| 6 | Every nodule is matched to its earlier self | 1.5 | Follow-up without re-finding or arithmetic |
+| 7 | Small solid: found. Ground-glass: not yet. | 2.5 | Honest results on the cases he asked about |
+| 8 | What is proven, and what is not yet | 2 | Evidence vs. open questions |
+| 9 | What would make this worth using? | 1 + discussion | His three answers and the next step |
 
 ---
 
-## Slide 1 · The research workflow problem (1.5 min)
+## Slide 1 · Nodule Research Copilot (0.5 min)
 
-- "These are your own numbers, Daniel: 25–40 minutes per baseline scan. The two big blocks are finding nodules (two
-  passes, 10–20 min) and outlining for volume (15–25 min), and that second one is why you only do it for about 1
-  nodule in 5." (E1)
-- "Naomi's goal is about half of that. Today that is a goal, and slide 7 shows exactly how far we have got." (E2)
-- Close on the question: *can we cut this and still keep you in control of every number?*
+- "I'm Yuval. This is a research tool for your lab: the AI does the first pass on a chest CT, and you stay in
+  control of every number."
+- Point at the image: a real public scan, with the AI outline and the expert's outline. Research prototype, not
+  for clinical use.
 
-## Slide 2 · From the hospital scan to your sheet (1.5 min)
+## Slide 2 · Objective (1.5 min)
 
-- "Before the AI: this is your day with it." Walk left to right. You export the scan as for any research scan →
-  one command runs the AI (overnight if you like) → open the folder in Chrome → review, fix, approve → the sheet
-  fills itself.
-- Only step 4 needs his judgement. Steps 2, 3 and 5 are machine time (measured: ~97 s AI per scan; ~12 s to open
-  two scans with AI).
-- Privacy and IT: nothing leaves the lab computer, and the browser blocks other sites (E22). There is no server and no
-  PACS connection, so no IT project, which is where last year's vendor stalled.
-- Be honest about the manual part: export and one command. Next: a watched folder; writing back to PACS only if
-  the hospital wants it. Ask him: "How do you get research scans out of PACS today?"
+- Today: 25–40 minutes per baseline scan, in Daniel's own estimate (E1). Most of it is finding nodules (10–20 min,
+  two passes through 250–400 slices) and outlining for volume (15–25 min per nodule, which is why he only does it
+  for about 1 in 5). The rest: ruler measurements, re-typing into the sheet, and ~10 min extra on follow-ups.
+- Goal: about half (Naomi's target, E2), so 12–20 minutes.
+- Three tests for success: accurate, in his control, and faster as *measured*, not promised.
 
-## Slide 3 · Let AI propose the findings (2 min)
+## Slide 3 · From the hospital scan to your sheet (2 min)
 
-- A real screenshot, a real public scan (RIDER), real model output. TotalSegmentator 2.18.0 ran on the whole CT. It
-  was not told where to look, and no expert data goes into it (E20).
-- It runs on the lab laptop before you sit down, about 100 seconds per scan (E6, from file timestamps). Nothing leaves
-  the computer.
-- Point at the worklist: N1 65.5 × 49.3 mm, 79,677 mm³, RUL; plus two tiny candidates. "Every one starts as *To
-  review*. Nothing is exported until you accept it."
+- Walk left to right. He exports the scan as for any research scan → one command runs the AI (~97 s per scan,
+  measured; can run overnight) → he opens the folder in Chrome → he reviews, fixes and approves → the sheet fills
+  itself in his columns.
+- Only step 4 needs his judgement. The rest is machine time.
+- Nothing leaves the lab computer, and the browser blocks connections to other sites (E22). No server and no
+  hospital connection means no IT project, which is where last year's vendor stalled.
+- Honest: export and the AI command are manual today. Next (not built): the AI runs by itself on new exports.
+  Writing results back to the hospital system only if the hospital wants it (standard DICOM SEG).
 
-## Slide 4 · Review. Correct. Approve. (2.5 min)
+## Slide 4 · The AI does the first pass (1.5 min)
 
-- Left: the AI outline in cyan, the expert outline as dotted magenta. Right: after brush strokes on 5 slices.
-- Read the table: volume 43.8 → 46.8 mL, toward the expert's 55.0. One stroke overshot the long axis (65.1 vs 59.8).
-  "I'm showing that on purpose: the numbers update after every stroke, so you see a mistake right away and undo
-  it with one key." (E8)
-- Say plainly: *these strokes were made by our test script, not by a person*, so this shows the mechanism and says
-  nothing about correction time.
-- Mention **S** + click for anything the AI missed. It is logged as "added by researcher".
+- A real screenshot: public RIDER scan, real output of TotalSegmentator 2.18.0, an open model. It searched the
+  whole scan, and nothing told it where to look (E20).
+- Each candidate is outlined in 3-D and measured: long and short axis on the largest slice, volume from the voxels,
+  plus a lobe hint from the AI's lung-lobe map.
+- Here: N1 65.5 × 49.3 mm (79.7 mL), plus two tiny candidates. All start as "to review".
 
-## Slide 5 · Understand what changed (2 min)
+## Slide 5 · Review. Correct. Approve. (2 min)
 
-- Baseline 2006-09-05 vs follow-up 2006-09-20, same patient. The app paired N1 with its earlier self automatically
-  (38 mm apart) and computed the change: −10.1 mm long axis, −45.1 % volume. The "?" stays until you confirm (E9).
-- Then the caution: the two scans were reconstructed differently (STANDARD vs LUNG kernel), the baseline has no
-  expert outline, and even two scans on the same day differ by a median 10–17 % in volume (E10). "The app does the
-  re-find and the arithmetic. Whether the tumour really shrank is your call."
+- Left: the AI outline (cyan) and the expert's (dotted magenta). Right: after brush strokes on 5 slices.
+- Volume moved 43.8 → 46.8 mL, toward the expert's 55.0 mL. One stroke overshot the long axis (65.1 vs 59.8 mm).
+  "I'm showing that on purpose: every stroke re-measures, so a mistake shows at once and is one undo away." (E8)
+- Say plainly: the strokes were made by our test script, so this shows the mechanism, not correction time.
+- Keys: A accept, R reject, B brush, E erase, S click to add a missed nodule (logged as added by the researcher).
 
-## Slide 6 · Small and ground-glass nodules (3 min)
+## Slide 6 · Every nodule is matched to its earlier self (1.5 min)
 
-- "This is the slide you asked for." Start with the limitation: RIDER's smallest tumour is 12.9 mm, and there are no
-  ground-glass labels.
-- On tumours ≤ 30 mm: 15 of 18 found, but outlines are worse (Dice 0.68, volume 39 % off) (E12). On the 12 smallest,
-  every AI outline was too small, by 26–97 % (E13).
-- The failure: the same 13 mm tumour was outlined at 8 mm on one scan and **missed** on the repeat 15 minutes later
-  (E14). The success: 12.9 mm found with Dice 0.81, but 15 other candidates to reject on that scan (E15).
-- Then the new test you asked for (E16): LIDC-IDRI, 15 scans, 35 nodules each outlined by at least 3 radiologists,
-  with the radiologists' own texture ratings. Solid: 26 of 27 found, 15 of 16 at ≤ 10 mm. **Ground-glass: 0 of 5.**
-  Part-solid: 1 of 3. Show the 15.8 mm ground-glass nodule with nothing on it (E21).
-- Say what it means: for hazy nodules the AI does not help today, so he keeps searching for them himself. For
-  solid nodules it finds them, but every outline is too small, so he redraws before using a volume.
+- Baseline 5 Sep 2006 and follow-up 20 Sep 2006, same patient. The app paired N1 with its earlier self (38 mm
+  apart, closest first) and computed the change. The "?" stays until he confirms (E9).
+- Caution: the two scans were reconstructed differently (STANDARD vs LUNG kernel), there is no expert outline on
+  the baseline, and same-day repeat scans already differ by a median of 9.5 % (our click) to 17 % (expert) in
+  volume (E10). The app does the re-finding and the arithmetic; whether it shrank is his call.
+
+## Slide 7 · Small solid: found. Ground-glass: not yet. (2.5 min)
+
+- "This is the slide you asked for." LIDC-IDRI: 15 public scans selected by fixed rules, 35 nodules each outlined by
+  at least 3 of 4 radiologists, with their own texture ratings (E16).
+- Solid: 26 of 27 found, 15 of 16 at ≤ 10 mm. But every outline the AI produced was too small (−26 % to −91 % in
+  volume), so he redraws before using a volume.
+- Part-solid 1 of 3. **Ground-glass 0 of 5.** Show the 15.8 mm ground-glass nodule with nothing on it (E21). For hazy
+  nodules the AI does not help today; he keeps searching for them himself.
+- Images 2 and 3 are from RIDER: a 13.5 mm tumour outlined at 8.0 mm (and missed entirely on a repeat scan 15
+  minutes later, E14), and a 12.9 mm tumour matched closely (Dice 0.81, E15).
 - If asked how we know the scoring is right: we caught a bug in our own scorer (outlines flipped on 5 scans) before
-  reporting. The fix is checked by the AI's candidates landing on the radiologists' nodules.
+  reporting, and the AI's candidates landing on the radiologists' nodules confirmed the fix.
 
-## Slide 7 · Does it actually save time? (2.5 min)
+## Slide 8 · What is proven, and what is not yet (2 min)
 
-- Top row, measured: 53/59 found (stricter Dice ≥ 0.5: 43/59), Dice 0.76, a median of 3 extra candidates per scan,
-  97 s of AI time per scan (E3–E6). Right card: the LIDC numbers repeat the slide 6 message (E16).
-- The bar chart is the honest part: manual = your estimate; 50 % = the goal; with the tool = **not measured yet**
-  (E17). The app already logs every action, correction, pause and export, so one timed session produces the answer.
-- Machine time is seconds (E7). The open question is your review and correction time, especially on small nodules.
+- Measured: 53 of 59 known tumours found on RIDER (90 %; stricter Dice ≥ 0.5: 43/59), median overlap with the expert
+  outline 0.76, AI time 97 s per scan (E3–E6). Context, not equivalence: on one scan, 5 readers using a
+  semi-automatic tool scored 0.77–0.90 against the same expert (E19).
+- Time: today 25–40 min (his estimate), goal 12–20 min, with the tool **not measured yet** (E17). The app already
+  logs every action, correction and pause, so one timed session gives the answer.
+- Not proven: researcher time saved, and ground-glass. False positives are only an upper bound (LIDC: a median of 1
+  extra candidate per scan).
 
-## Slide 8 · What would make this trustworthy? (1.5 min + discussion)
+## Slide 9 · What would make this worth using? (1 min + discussion)
 
-- Read Daniel's quote (E18). Say it is his written feedback, not an observation of him using the tool.
-- Status on his three points: review and correction built; timing instrumented but not run; small solid tested with
-  failures shown, ground-glass pending.
-- Ask the four questions and write the answers down word for word. Propose the next step: a 15–20 minute timed
-  session (RESEARCHER_TEST_PROTOCOL.md) on public scans, manual vs AI-assisted.
+- Read his quote. It is his written feedback, not an observation of him using the tool (E18).
+- Ask the three questions and write the answers down word for word.
+- Propose the next step: a 20-minute timed session on 10 public scans, manual vs with the tool
+  (`docs/RESEARCHER_TEST_PROTOCOL.md`).
 
 ## If asked
 
-- *"Is it as good as a radiologist?"* We don't claim that. On one scan, 5 readers using a semi-automatic tool scored
-  Dice 0.77–0.90 against the expert, and the AI scored 0.87 (E19). That is context from one patient, not equivalence.
-- *"False positives?"* Not measurable on RIDER, because only one tumour is labelled per scan. LIDC has all nodules
-  labelled, so it gives an upper bound.
-- *"Does data leave the computer?"* No. The browser blocks connections to other sites (CSP), and the AI runs locally.
+- *"Is it as good as a radiologist?"* We don't claim that. See slide 8 context: one scan, semi-automatic readers.
+- *"False positives?"* Not measurable on RIDER (one tumour labelled per scan). LIDC gives an upper bound: median 1
+  extra candidate per scan.
+- *"Does data leave the computer?"* No. The browser blocks other sites (CSP), and the AI runs locally.
+- *"Why not write results back to PACS?"* It's a research tool, and his output today is a research sheet. Writing
+  back is possible (DICOM SEG) but needs the hospital's IT, so it's a phase-2 choice for them.

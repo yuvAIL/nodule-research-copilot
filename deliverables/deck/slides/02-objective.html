@@ -1,0 +1,43 @@
+<section class="slide">
+  <style>
+    .obj-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 70px; padding-bottom: 40px; }
+    .obj-top { display: grid; grid-template-columns: 1fr 120px 1fr; align-items: stretch; }
+    .obj-box { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 34px 40px; }
+    .obj-box .k { font: 600 17px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+    .obj-box .v { font: 700 112px/1 var(--sans); letter-spacing: -.04em; margin: 18px 0 12px; }
+    .obj-box .v small { font-size: 40px; color: var(--muted); font-weight: 600; letter-spacing: 0; margin-left: 10px; }
+    .obj-box .d { font-size: 22px; color: var(--muted); line-height: 1.4; }
+    .obj-box.goal { border-color: rgba(92,200,242,.5); background: linear-gradient(160deg, rgba(92,200,242,.10), var(--panel) 60%); }
+    .obj-box.goal .v { color: var(--cyan); }
+    .obj-arrow { display: grid; place-items: center; font: 700 56px/1 var(--sans); color: var(--cyan); }
+    .crit { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+    .crit .c { border-top: 3px solid var(--cyan); padding-top: 22px; }
+    .crit .c:nth-child(2) { border-color: var(--ai); }
+    .crit .c:nth-child(3) { border-color: var(--ok); }
+    .crit .t { font-size: 36px; font-weight: 700; margin-bottom: 10px; }
+    .crit .s { font-size: 24px; color: var(--muted); line-height: 1.4; }
+  </style>
+  <div class="kicker"><span class="n">{{N}} / {{T}}</span> Objective</div>
+  <h1>Halve the time per scan, without losing quality</h1>
+  <div class="obj-wrap">
+  <div class="obj-top">
+    <div class="obj-box">
+      <div class="k">Today · Daniel's estimate</div>
+      <div class="v">25–40<small>min</small></div>
+      <div class="d">per baseline scan, mostly spent <b style="color:var(--text)">finding</b> nodules slice by slice and <b style="color:var(--text)">outlining</b> them for volume</div>
+    </div>
+    <div class="obj-arrow">→</div>
+    <div class="obj-box goal">
+      <div class="k">Goal · Naomi's target</div>
+      <div class="v">12–20<small>min</small></div>
+      <div class="d">about <b style="color:var(--text)">half the time</b>, with the same quality of measurement</div>
+    </div>
+  </div>
+  <div class="crit">
+    <div class="c"><div class="t">Accurate</div><div class="s">Finds and measures nodules close to an expert's outline, and shows where it fails.</div></div>
+    <div class="c"><div class="t">In control</div><div class="s">Every number is reviewed, correctable, and approved by the researcher.</div></div>
+    <div class="c"><div class="t">Faster, measured</div><div class="s">Time saved is measured on real work, not promised.</div></div>
+  </div>
+  </div>
+  <div class="foot"><span>Times: Daniel's own estimate from the discovery call, not measured by us</span><span>Nodule Research Copilot</span></div>
+</section>

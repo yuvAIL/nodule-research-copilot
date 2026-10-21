@@ -1,0 +1,23 @@
+<section class="slide">
+  <style>
+    .ai-body { flex: 1; display: flex; flex-direction: column; gap: 46px; justify-content: center; min-height: 0; }
+    .ai-body .shot { height: 590px; width: 1744px; }
+    .ai-body .shot .cap { top: 14px; bottom: auto; }
+    .ai-body .shot img { object-fit: cover; object-position: 50% 80%; }
+    .pts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; }
+    .pt b { display: block; font-size: 32px; line-height: 1.2; margin-bottom: 10px; }
+    .pt span { font-size: 23px; color: var(--muted); line-height: 1.45; }
+    .pt .n { font: 700 18px/1 var(--mono); color: var(--cyan); display: block; margin-bottom: 12px; letter-spacing: .1em; }
+  </style>
+  <div class="kicker"><span class="n">{{N}} / {{T}}</span> The AI's first pass</div>
+  <h1>The AI does the first pass</h1>
+  <div class="ai-body">
+    <div class="shot"><img src="img/s4-ai-composite.jpg" alt="The app with AI candidates"><div class="cap">Real app · real public scan (RIDER) · real model output</div></div>
+    <div class="pts">
+      <div class="pt"><span class="n">FINDS</span><b>Searches the whole scan</b><span>TotalSegmentator, an open AI model, runs on the lab computer. ~97 s per scan.</span></div>
+      <div class="pt"><span class="n">MEASURES</span><b>Outlines and measures</b><span>Long and short axis and volume in mm, plus a lobe hint, for every candidate.</span></div>
+      <div class="pt"><span class="n">WAITS</span><b>Nothing is final</b><span>Every candidate starts as "to review". Nothing reaches the sheet until you accept it.</span></div>
+    </div>
+  </div>
+  <div class="foot"><span>RIDER-1129164940, baseline scan · TotalSegmentator 2.18.0 lung_nodules</span><span>Evidence E6, E20</span></div>
+</section>
