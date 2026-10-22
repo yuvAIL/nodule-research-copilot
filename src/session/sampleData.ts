@@ -24,7 +24,33 @@ export interface SampleManifest {
   reference?: string | string[];
 }
 
-const PARALLEL_DOWNLOADS = 8;
+const PARALLEL_DOWNLOADS = 6;
+const ATTEMPTS = 4;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * One file, retried on network errors and on 408/429/5xx (a slow or busy connection drops a few of ~500 requests;
+ * one dropped request must not fail the whole sample).
+ */
+async function fetchWithRetry(url: string, label: string, signal?: AbortSignal): Promise<Blob> {
+  let lastError = '';
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(url, { signal });
+      if (response.ok) return await response.blob();
+      lastError = `HTTP ${response.status}`;
+      if (!(response.status === 408 || response.status === 429 || response.status >= 500)) break;
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+    if (attempt < ATTEMPTS) await wait(400 * 2 ** (attempt - 1));
+  }
+  throw new Error(
+    `${label} could not be downloaded after ${ATTEMPTS} tries (${lastError}). Check the internet connection, or a browser extension that blocks downloads, and click Load sample CT again.`,
+  );
+}
 
 export const SAMPLE_BASE_URL: string = (import.meta.env.VITE_SAMPLE_BASE_URL as string | undefined) ?? `${import.meta.env.BASE_URL}sample`;
 
@@ -38,9 +64,8 @@ export function sampleUrl(path: string): string {
 
 /** Downloads one extra sample file (AI result, expert outline) as a File. */
 export async function fetchSampleFile(path: string, signal?: AbortSignal): Promise<File> {
-  const response = await fetch(sampleUrl(path), { signal });
-  if (!response.ok) throw new Error(`${path} could not be downloaded (HTTP ${response.status}).`);
-  return new File([await response.blob()], path.split('/').pop() ?? path, { type: 'application/dicom' });
+  const blob = await fetchWithRetry(sampleUrl(path), path, signal);
+  return new File([blob], path.split('/').pop() ?? path, { type: 'application/dicom' });
 }
 
 export async function fetchSampleManifest(signal?: AbortSignal): Promise<SampleManifest | undefined> {
@@ -67,9 +92,7 @@ export async function downloadSample(
     while (next < manifest.files.length) {
       const index = next++;
       const path = manifest.files[index] as string;
-      const response = await fetch(join(SAMPLE_BASE_URL, path), { signal });
-      if (!response.ok) throw new Error(`Sample file ${path} could not be downloaded (HTTP ${response.status}).`);
-      const blob = await response.blob();
+      const blob = await fetchWithRetry(join(SAMPLE_BASE_URL, path), `Sample file ${path}`, signal);
       const name = path.split('/').pop() ?? path;
       out[index] = { file: new File([blob], name, { type: 'application/dicom' }), relativePath: `sample/${path}` };
       onProgress(++done, manifest.files.length);
